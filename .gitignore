@@ -1,0 +1,4 @@
+*.bin
+*.bin.gz
+weights/*.bin
+weights/*.bin.gz

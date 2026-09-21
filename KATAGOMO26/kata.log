@@ -1,0 +1,201 @@
+2026-09-20 20:12:33+0800: Running with following config:
+VCNRule = NOVC
+allowResignation = false
+analysisPVLen = 5
+backendNumThreads = 1
+basicRule = FREESTYLE
+cpuctExploration = 1.0
+cpuctExplorationBase = 500
+cpuctExplorationLog = 0.4
+firstPassWin = false
+gpuToUseThread0 = 0
+lagBuffer = 0.2
+logAllGTPCommunication = true
+logFile = kata.log
+logSearchInfo = true
+logToStderr = false
+maxTimePondering = 120
+nnCacheSizePowerOfTwo = 18
+nnMaxBatchSize = 1
+nnMutexPoolSizePowerOfTwo = 2
+nnPolicyTemperature = 1.1
+noResultUtilityForWhite = 0.0
+noResultUtilityReduce = 0.3
+numNNServerThreadsPerModel = 1
+ogsChatToStderr = true
+playoutDoublingAdvantage = 0.0
+playoutDoublingAdvantagePla = WHITE
+ponderingEnabled = false
+resignConsecTurns = 3
+resignThreshold = -0.90
+searchFactorWhenWinning = 0.40
+searchFactorWhenWinningThreshold = 0.99
+subtreeValueBiasFactor = 0.0
+
+2026-09-20 20:12:33+0800: GTP Engine starting...
+2026-09-20 20:12:33+0800: KataGo v1.12.4
+2026-09-20 20:12:33+0800: Using chinese rules initially, unless GTP/GUI overrides this
+2026-09-20 20:12:33+0800: Using 1 CPU thread(s) for search
+2026-09-20 20:12:33+0800: nnRandSeed0 = 16272176203009847281
+2026-09-20 20:12:33+0800: After dedups: nnModelFile0 = E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/freestyle20x.onnx useFP16 auto useNHWC auto
+2026-09-20 20:12:33+0800: Initializing neural net buffer to be size 20 * 20 exactly
+2026-09-20 20:12:33+0800: Loaded neural net with nnXLen 20 nnYLen 20
+2026-09-20 20:12:33+0800: Initializing board with boardXSize 20 boardYSize 20
+2026-09-20 20:12:33+0800: Loaded config E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/freestyle20x.cfg
+2026-09-20 20:12:33+0800: Loaded model E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/freestyle20x.onnx
+2026-09-20 20:12:33+0800: Model name: b11c96h3tfrs_fs20x-s15475371008-d58012571
+2026-09-20 20:12:33+0800: GTP ready, beginning main protocol loop
+2026-09-20 20:12:40+0800: Controller: go
+2026-09-20 20:12:40+0800: ERROR unknown command
+2026-09-20 20:12:43+0800: Controller: go 4 4
+2026-09-20 20:12:43+0800: ERROR unknown command
+2026-09-20 20:12:46+0800: Controller: go 5,5
+2026-09-20 20:12:46+0800: ERROR unknown command
+2026-09-20 20:19:31+0800: Running with following config:
+allowResignation = false
+analysisPVLen = 5
+backendNumThreads = 1
+cpuctExploration = 1.0
+cpuctExplorationBase = 500
+cpuctExplorationLog = 0.4
+gpuToUseThread0 = 0
+lagBuffer = 0.2
+logAllGTPCommunication = true
+logFile = kata.log
+logSearchInfo = true
+logToStderr = false
+maxTimePondering = 120
+nnCacheSizePowerOfTwo = 18
+nnMaxBatchSize = 1
+nnMutexPoolSizePowerOfTwo = 2
+nnPolicyTemperature = 1.1
+noResultUtilityForWhite = 0.0
+noResultUtilityReduce = 0.3
+numNNServerThreadsPerModel = 1
+ogsChatToStderr = true
+playoutDoublingAdvantage = 0.0
+playoutDoublingAdvantagePla = WHITE
+ponderingEnabled = false
+resignConsecTurns = 3
+resignThreshold = -0.90
+searchFactorWhenWinning = 0.40
+searchFactorWhenWinningThreshold = 0.99
+sixWinRule = SIXWINRULE_ALWAYS
+subtreeValueBiasFactor = 0.0
+wallBlockRule = false
+
+2026-09-20 20:19:31+0800: GTP Engine starting...
+2026-09-20 20:19:31+0800: KataGo v1.12.4
+2026-09-20 20:19:31+0800: Using sixwinruleSIXWINRULE_ALWAYSwallblock0vcnruleNOVCfirstpasswin0maxmoves0 rules initially, unless GTP/GUI overrides this
+2026-09-20 20:19:31+0800: Using 1 CPU thread(s) for search
+2026-09-20 20:19:31+0800: nnRandSeed0 = 10777264631688959762
+2026-09-20 20:19:31+0800: After dedups: nnModelFile0 = E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/caro15x.onnx useFP16 auto useNHWC auto
+2026-09-20 20:19:31+0800: Initializing neural net buffer to be size 15 * 15 exactly
+2026-09-20 20:19:32+0800: Loaded neural net with nnXLen 15 nnYLen 15
+2026-09-20 20:19:32+0800: Initializing board with boardXSize 15 boardYSize 15
+2026-09-20 20:19:32+0800: Loaded config E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/caro15x.cfg
+2026-09-20 20:19:32+0800: Loaded model E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/caro15x.onnx
+2026-09-20 20:19:32+0800: Model name: b11c96h3tfrs_caro15x_r-s6750704640-d53521343
+2026-09-20 20:19:32+0800: GTP ready, beginning main protocol loop
+2026-09-20 21:17:18+0800: Running with following config:
+VCNRule = NOVC
+allowResignation = false
+analysisPVLen = 5
+backendNumThreads = 1
+basicRule = RENJU
+cpuctExploration = 1.0
+cpuctExplorationBase = 500
+cpuctExplorationLog = 0.4
+firstPassWin = false
+gpuToUseThread0 = 0
+lagBuffer = 0.2
+logAllGTPCommunication = true
+logFile = kata.log
+logSearchInfo = true
+logToStderr = false
+maxTimePondering = 120
+nnCacheSizePowerOfTwo = 18
+nnMaxBatchSize = 1
+nnMutexPoolSizePowerOfTwo = 2
+nnPolicyTemperature = 1.1
+noResultUtilityForWhite = 0.0
+noResultUtilityReduce = 0.3
+numNNServerThreadsPerModel = 1
+ogsChatToStderr = true
+playoutDoublingAdvantage = 0.0
+playoutDoublingAdvantagePla = WHITE
+ponderingEnabled = false
+resignConsecTurns = 3
+resignThreshold = -0.90
+searchFactorWhenWinning = 0.40
+searchFactorWhenWinningThreshold = 0.99
+subtreeValueBiasFactor = 0.0
+
+2026-09-20 21:17:18+0800: GTP Engine starting...
+2026-09-20 21:17:18+0800: KataGo v1.12.4
+2026-09-20 21:17:18+0800: Using basicruleRENJUvcnruleNOVCfirstpasswin0maxmoves0 rules initially, unless GTP/GUI overrides this
+2026-09-20 21:17:18+0800: Using 1 CPU thread(s) for search
+2026-09-20 21:17:18+0800: nnRandSeed0 = 10270214127864626947
+2026-09-20 21:17:18+0800: After dedups: nnModelFile0 = E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/renju15x.onnx useFP16 auto useNHWC auto
+2026-09-20 21:17:18+0800: Initializing neural net buffer to be size 15 * 15 exactly
+2026-09-20 21:17:18+0800: Loaded neural net with nnXLen 15 nnYLen 15
+2026-09-20 21:17:18+0800: Initializing board with boardXSize 15 boardYSize 15
+2026-09-20 21:17:18+0800: Loaded config E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/renju15x.cfg
+2026-09-20 21:17:18+0800: Loaded model E:\university_data\Software_Engineering\gomoku_calc\KATAGOMO26/renju15x.onnx
+2026-09-20 21:17:18+0800: Model name: b11c96h3tfrs_renju15x-s12395206656-d101315095
+2026-09-20 21:17:18+0800: GTP ready, beginning main protocol loop
+2026-09-20 21:18:15+0800: Controller: clear_board
+2026-09-20 21:18:15+0800: 
+2026-09-20 21:18:20+0800: Controller: boardsize 15
+2026-09-20 21:18:20+0800: 
+2026-09-20 21:18:31+0800: Controller: play black H8
+2026-09-20 21:18:31+0800: 
+2026-09-20 21:18:38+0800: Controller: genmove white
+2026-09-20 21:18:44+0800: MoveNum: 1 HASH: 4C053C79822A2FCC64BB87010F49B243
+   A B C D E F G H J K L M N O P
+15 . . . . . . . . . . . . . . .
+14 . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . .
+ 9 . . . . . . . . . . . . . . .
+ 8 . . . . . . . X1. . . . . . .
+ 7 . . . . . . @ . . . . . . . .
+ 6 . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . .
+ 4 . . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . .
+ 2 . . . . . . . . . . . . . . .
+ 1 . . . . . . . . . . . . . . .
+
+basicruleRENJUvcnruleNOVCfirstpasswin0maxmoves0
+Time taken: 5.859
+Root visits: 73
+New playouts: 73
+NN rows: 73
+NN batches: 73
+NN avg batch size: 1
+PV: G7 H9 H10 J8 K7 G8
+Tree:
+: T -98.13c W -98.13c N      73  --  G7 H9 H10 J8 K7 G8
+---White(^)---
+G7  : T -97.50c W -97.50c LCB  -99.76c P  1.90% WF  20.7 PSV      21 N      37  --  G7 H9 H10 J8 K7 G8
+F6  : T -98.25c W -98.25c LCB -102.44c P  1.71% WF   6.8 PSV       7 N      12  --  F6 J7 G9 J8 G8
+E6  : T -98.80c W -98.80c LCB -112.78c P  1.61% WF   3.4 PSV       4 N       6  --  E6 G9 D7 F10 E11 H10
+F8  : T -99.45c W -99.45c LCB -119.33c P  1.81% WF   2.8 PSV       3 N       5  --  F8 J7 G9 H6
+F7  : T -99.10c W -99.10c LCB -118.98c P  1.81% WF   2.8 PSV       3 N       5  --  F7 J8 G8
+G8  : T -99.00c W -99.00c LCB -118.85c P  1.71% WF   2.8 PSV       3 N       5  --  G8 G7 J9
+E8  : T -98.46c W -98.46c LCB -205.06c P  1.54% WF   1.1 PSV       2 N       2  --  E8 J9
+
+2026-09-20 21:18:44+0800: 6,8
+2026-09-20 21:20:31+0800: Controller: clear_board
+2026-09-20 21:20:31+0800: 
+2026-09-20 21:20:31+0800: Controller: play black H8
+2026-09-20 21:20:31+0800: 
+2026-09-20 21:20:31+0800: Controller: lz-analyze 100
+2026-09-20 21:20:31+0800: 
+2026-09-20 21:21:46+0800: Controller: namename
+2026-09-20 21:21:46+0800: ERROR unknown command
+2026-09-20 21:28:36+0800: Controller: name
+2026-09-20 21:28:36+0800: KataGo
