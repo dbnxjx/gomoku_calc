@@ -1,0 +1,29 @@
+CMakeFiles/katago.dir/core/rand_helpers.cpp.o: \
+  E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/rand_helpers.cpp \
+  E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/../core/rand_helpers.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stdint.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdint.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/sys/cdefs.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/versioning.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/api-level.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/get_device_api_level_inlines.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/ndk-version.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/wchar_limits.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/stddef.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__config \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__config_site \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__configuration/abi.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__configuration/compiler.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__configuration/platform.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/features.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__configuration/availability.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__configuration/language.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stddef.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_header_macro.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_ptrdiff_t.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_size_t.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_wchar_t.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_null.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_nullptr_t.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_max_align_t.h \
+  D:/lots_of_app/android_ndk/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_offsetof.h

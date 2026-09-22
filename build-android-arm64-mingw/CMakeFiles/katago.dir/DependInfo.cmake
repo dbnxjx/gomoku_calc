@@ -1,0 +1,115 @@
+
+# Consider dependencies only in project.
+set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
+
+# The set of languages for which implicit dependencies are needed:
+set(CMAKE_DEPENDS_LANGUAGES
+  )
+
+# The set of dependency files which are needed:
+set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/book/book.cpp" "CMakeFiles/katago.dir/book/book.cpp.o" "gcc" "CMakeFiles/katago.dir/book/book.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/book/bookcssjs.cpp" "CMakeFiles/katago.dir/book/bookcssjs.cpp.o" "gcc" "CMakeFiles/katago.dir/book/bookcssjs.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/analysis.cpp" "CMakeFiles/katago.dir/command/analysis.cpp.o" "gcc" "CMakeFiles/katago.dir/command/analysis.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/benchmark.cpp" "CMakeFiles/katago.dir/command/benchmark.cpp.o" "gcc" "CMakeFiles/katago.dir/command/benchmark.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/commandline.cpp" "CMakeFiles/katago.dir/command/commandline.cpp.o" "gcc" "CMakeFiles/katago.dir/command/commandline.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/contribute.cpp" "CMakeFiles/katago.dir/command/contribute.cpp.o" "gcc" "CMakeFiles/katago.dir/command/contribute.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/evalsgf.cpp" "CMakeFiles/katago.dir/command/evalsgf.cpp.o" "gcc" "CMakeFiles/katago.dir/command/evalsgf.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/gatekeeper.cpp" "CMakeFiles/katago.dir/command/gatekeeper.cpp.o" "gcc" "CMakeFiles/katago.dir/command/gatekeeper.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/genbook.cpp" "CMakeFiles/katago.dir/command/genbook.cpp.o" "gcc" "CMakeFiles/katago.dir/command/genbook.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/gputest.cpp" "CMakeFiles/katago.dir/command/gputest.cpp.o" "gcc" "CMakeFiles/katago.dir/command/gputest.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/gtp.cpp" "CMakeFiles/katago.dir/command/gtp.cpp.o" "gcc" "CMakeFiles/katago.dir/command/gtp.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/match.cpp" "CMakeFiles/katago.dir/command/match.cpp.o" "gcc" "CMakeFiles/katago.dir/command/match.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/matchauto.cpp" "CMakeFiles/katago.dir/command/matchauto.cpp.o" "gcc" "CMakeFiles/katago.dir/command/matchauto.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/misc.cpp" "CMakeFiles/katago.dir/command/misc.cpp.o" "gcc" "CMakeFiles/katago.dir/command/misc.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/runtests.cpp" "CMakeFiles/katago.dir/command/runtests.cpp.o" "gcc" "CMakeFiles/katago.dir/command/runtests.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/sandbox.cpp" "CMakeFiles/katago.dir/command/sandbox.cpp.o" "gcc" "CMakeFiles/katago.dir/command/sandbox.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/selfplay.cpp" "CMakeFiles/katago.dir/command/selfplay.cpp.o" "gcc" "CMakeFiles/katago.dir/command/selfplay.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/command/tune.cpp" "CMakeFiles/katago.dir/command/tune.cpp.o" "gcc" "CMakeFiles/katago.dir/command/tune.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/base64.cpp" "CMakeFiles/katago.dir/core/base64.cpp.o" "gcc" "CMakeFiles/katago.dir/core/base64.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/bsearch.cpp" "CMakeFiles/katago.dir/core/bsearch.cpp.o" "gcc" "CMakeFiles/katago.dir/core/bsearch.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/commandloop.cpp" "CMakeFiles/katago.dir/core/commandloop.cpp.o" "gcc" "CMakeFiles/katago.dir/core/commandloop.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/config_parser.cpp" "CMakeFiles/katago.dir/core/config_parser.cpp.o" "gcc" "CMakeFiles/katago.dir/core/config_parser.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/datetime.cpp" "CMakeFiles/katago.dir/core/datetime.cpp.o" "gcc" "CMakeFiles/katago.dir/core/datetime.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/elo.cpp" "CMakeFiles/katago.dir/core/elo.cpp.o" "gcc" "CMakeFiles/katago.dir/core/elo.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/fancymath.cpp" "CMakeFiles/katago.dir/core/fancymath.cpp.o" "gcc" "CMakeFiles/katago.dir/core/fancymath.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/fileutils.cpp" "CMakeFiles/katago.dir/core/fileutils.cpp.o" "gcc" "CMakeFiles/katago.dir/core/fileutils.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/global.cpp" "CMakeFiles/katago.dir/core/global.cpp.o" "gcc" "CMakeFiles/katago.dir/core/global.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/hash.cpp" "CMakeFiles/katago.dir/core/hash.cpp.o" "gcc" "CMakeFiles/katago.dir/core/hash.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/logger.cpp" "CMakeFiles/katago.dir/core/logger.cpp.o" "gcc" "CMakeFiles/katago.dir/core/logger.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/mainargs.cpp" "CMakeFiles/katago.dir/core/mainargs.cpp.o" "gcc" "CMakeFiles/katago.dir/core/mainargs.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/makedir.cpp" "CMakeFiles/katago.dir/core/makedir.cpp.o" "gcc" "CMakeFiles/katago.dir/core/makedir.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/md5.cpp" "CMakeFiles/katago.dir/core/md5.cpp.o" "gcc" "CMakeFiles/katago.dir/core/md5.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/multithread.cpp" "CMakeFiles/katago.dir/core/multithread.cpp.o" "gcc" "CMakeFiles/katago.dir/core/multithread.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/rand.cpp" "CMakeFiles/katago.dir/core/rand.cpp.o" "gcc" "CMakeFiles/katago.dir/core/rand.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/rand_helpers.cpp" "CMakeFiles/katago.dir/core/rand_helpers.cpp.o" "gcc" "CMakeFiles/katago.dir/core/rand_helpers.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/sha2.cpp" "CMakeFiles/katago.dir/core/sha2.cpp.o" "gcc" "CMakeFiles/katago.dir/core/sha2.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/test.cpp" "CMakeFiles/katago.dir/core/test.cpp.o" "gcc" "CMakeFiles/katago.dir/core/test.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/threadsafecounter.cpp" "CMakeFiles/katago.dir/core/threadsafecounter.cpp.o" "gcc" "CMakeFiles/katago.dir/core/threadsafecounter.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/threadsafequeue.cpp" "CMakeFiles/katago.dir/core/threadsafequeue.cpp.o" "gcc" "CMakeFiles/katago.dir/core/threadsafequeue.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/threadtest.cpp" "CMakeFiles/katago.dir/core/threadtest.cpp.o" "gcc" "CMakeFiles/katago.dir/core/threadtest.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/core/timer.cpp" "CMakeFiles/katago.dir/core/timer.cpp.o" "gcc" "CMakeFiles/katago.dir/core/timer.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/dataio/files.cpp" "CMakeFiles/katago.dir/dataio/files.cpp.o" "gcc" "CMakeFiles/katago.dir/dataio/files.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/dataio/homedata.cpp" "CMakeFiles/katago.dir/dataio/homedata.cpp.o" "gcc" "CMakeFiles/katago.dir/dataio/homedata.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/dataio/loadmodel.cpp" "CMakeFiles/katago.dir/dataio/loadmodel.cpp.o" "gcc" "CMakeFiles/katago.dir/dataio/loadmodel.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/dataio/numpywrite.cpp" "CMakeFiles/katago.dir/dataio/numpywrite.cpp.o" "gcc" "CMakeFiles/katago.dir/dataio/numpywrite.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/dataio/poswriter.cpp" "CMakeFiles/katago.dir/dataio/poswriter.cpp.o" "gcc" "CMakeFiles/katago.dir/dataio/poswriter.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/dataio/sgf.cpp" "CMakeFiles/katago.dir/dataio/sgf.cpp.o" "gcc" "CMakeFiles/katago.dir/dataio/sgf.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/dataio/trainingwrite.cpp" "CMakeFiles/katago.dir/dataio/trainingwrite.cpp.o" "gcc" "CMakeFiles/katago.dir/dataio/trainingwrite.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/distributed/client.cpp" "CMakeFiles/katago.dir/distributed/client.cpp.o" "gcc" "CMakeFiles/katago.dir/distributed/client.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/forbiddenPoint/ForbiddenPointFinder.cpp" "CMakeFiles/katago.dir/forbiddenPoint/ForbiddenPointFinder.cpp.o" "gcc" "CMakeFiles/katago.dir/forbiddenPoint/ForbiddenPointFinder.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/game/board.cpp" "CMakeFiles/katago.dir/game/board.cpp.o" "gcc" "CMakeFiles/katago.dir/game/board.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/game/boardhistory.cpp" "CMakeFiles/katago.dir/game/boardhistory.cpp.o" "gcc" "CMakeFiles/katago.dir/game/boardhistory.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/game/gamelogic.cpp" "CMakeFiles/katago.dir/game/gamelogic.cpp.o" "gcc" "CMakeFiles/katago.dir/game/gamelogic.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/game/graphhash.cpp" "CMakeFiles/katago.dir/game/graphhash.cpp.o" "gcc" "CMakeFiles/katago.dir/game/graphhash.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/game/randomopening.cpp" "CMakeFiles/katago.dir/game/randomopening.cpp.o" "gcc" "CMakeFiles/katago.dir/game/randomopening.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/game/rules.cpp" "CMakeFiles/katago.dir/game/rules.cpp.o" "gcc" "CMakeFiles/katago.dir/game/rules.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/main.cpp" "CMakeFiles/katago.dir/main.cpp.o" "gcc" "CMakeFiles/katago.dir/main.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/neuralnet/desc.cpp" "CMakeFiles/katago.dir/neuralnet/desc.cpp.o" "gcc" "CMakeFiles/katago.dir/neuralnet/desc.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/neuralnet/eigenbackend.cpp" "CMakeFiles/katago.dir/neuralnet/eigenbackend.cpp.o" "gcc" "CMakeFiles/katago.dir/neuralnet/eigenbackend.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/neuralnet/modelversion.cpp" "CMakeFiles/katago.dir/neuralnet/modelversion.cpp.o" "gcc" "CMakeFiles/katago.dir/neuralnet/modelversion.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/neuralnet/nneval.cpp" "CMakeFiles/katago.dir/neuralnet/nneval.cpp.o" "gcc" "CMakeFiles/katago.dir/neuralnet/nneval.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/neuralnet/nninputs.cpp" "CMakeFiles/katago.dir/neuralnet/nninputs.cpp.o" "gcc" "CMakeFiles/katago.dir/neuralnet/nninputs.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/program/gtpconfig.cpp" "CMakeFiles/katago.dir/program/gtpconfig.cpp.o" "gcc" "CMakeFiles/katago.dir/program/gtpconfig.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/program/play.cpp" "CMakeFiles/katago.dir/program/play.cpp.o" "gcc" "CMakeFiles/katago.dir/program/play.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/program/playsettings.cpp" "CMakeFiles/katago.dir/program/playsettings.cpp.o" "gcc" "CMakeFiles/katago.dir/program/playsettings.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/program/playutils.cpp" "CMakeFiles/katago.dir/program/playutils.cpp.o" "gcc" "CMakeFiles/katago.dir/program/playutils.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/program/selfplaymanager.cpp" "CMakeFiles/katago.dir/program/selfplaymanager.cpp.o" "gcc" "CMakeFiles/katago.dir/program/selfplaymanager.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/program/setup.cpp" "CMakeFiles/katago.dir/program/setup.cpp.o" "gcc" "CMakeFiles/katago.dir/program/setup.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/analysisdata.cpp" "CMakeFiles/katago.dir/search/analysisdata.cpp.o" "gcc" "CMakeFiles/katago.dir/search/analysisdata.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/asyncbot.cpp" "CMakeFiles/katago.dir/search/asyncbot.cpp.o" "gcc" "CMakeFiles/katago.dir/search/asyncbot.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/distributiontable.cpp" "CMakeFiles/katago.dir/search/distributiontable.cpp.o" "gcc" "CMakeFiles/katago.dir/search/distributiontable.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/localpattern.cpp" "CMakeFiles/katago.dir/search/localpattern.cpp.o" "gcc" "CMakeFiles/katago.dir/search/localpattern.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/mutexpool.cpp" "CMakeFiles/katago.dir/search/mutexpool.cpp.o" "gcc" "CMakeFiles/katago.dir/search/mutexpool.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/patternbonustable.cpp" "CMakeFiles/katago.dir/search/patternbonustable.cpp.o" "gcc" "CMakeFiles/katago.dir/search/patternbonustable.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/reportedsearchvalues.cpp" "CMakeFiles/katago.dir/search/reportedsearchvalues.cpp.o" "gcc" "CMakeFiles/katago.dir/search/reportedsearchvalues.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/search.cpp" "CMakeFiles/katago.dir/search/search.cpp.o" "gcc" "CMakeFiles/katago.dir/search/search.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchexplorehelpers.cpp" "CMakeFiles/katago.dir/search/searchexplorehelpers.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchexplorehelpers.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchhelpers.cpp" "CMakeFiles/katago.dir/search/searchhelpers.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchhelpers.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchmultithreadhelpers.cpp" "CMakeFiles/katago.dir/search/searchmultithreadhelpers.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchmultithreadhelpers.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchnnhelpers.cpp" "CMakeFiles/katago.dir/search/searchnnhelpers.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchnnhelpers.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchnode.cpp" "CMakeFiles/katago.dir/search/searchnode.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchnode.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchnodetable.cpp" "CMakeFiles/katago.dir/search/searchnodetable.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchnodetable.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchparams.cpp" "CMakeFiles/katago.dir/search/searchparams.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchparams.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchresults.cpp" "CMakeFiles/katago.dir/search/searchresults.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchresults.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchtimehelpers.cpp" "CMakeFiles/katago.dir/search/searchtimehelpers.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchtimehelpers.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/searchupdatehelpers.cpp" "CMakeFiles/katago.dir/search/searchupdatehelpers.cpp.o" "gcc" "CMakeFiles/katago.dir/search/searchupdatehelpers.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/subtreevaluebiastable.cpp" "CMakeFiles/katago.dir/search/subtreevaluebiastable.cpp.o" "gcc" "CMakeFiles/katago.dir/search/subtreevaluebiastable.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/search/timecontrols.cpp" "CMakeFiles/katago.dir/search/timecontrols.cpp.o" "gcc" "CMakeFiles/katago.dir/search/timecontrols.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/tests/testcommon.cpp" "CMakeFiles/katago.dir/tests/testcommon.cpp.o" "gcc" "CMakeFiles/katago.dir/tests/testcommon.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/tests/testnnevalcanary.cpp" "CMakeFiles/katago.dir/tests/testnnevalcanary.cpp.o" "gcc" "CMakeFiles/katago.dir/tests/testnnevalcanary.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/vcfsolver/VCFHashTable.cpp" "CMakeFiles/katago.dir/vcfsolver/VCFHashTable.cpp.o" "gcc" "CMakeFiles/katago.dir/vcfsolver/VCFHashTable.cpp.o.d"
+  "E:/university_data/Software_Engineering/gomoku_calc/KataGomo_fork-Gomoku_20250206/cpp/vcfsolver/VCFsolver.cpp" "CMakeFiles/katago.dir/vcfsolver/VCFsolver.cpp.o" "gcc" "CMakeFiles/katago.dir/vcfsolver/VCFsolver.cpp.o.d"
+  "" "katago" "gcc" "CMakeFiles/katago.dir/link.d"
+  )
+
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
+  )
+
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
+  )
+
+# Fortran module output directory.
+set(CMAKE_Fortran_TARGET_MODULE_DIR "")
