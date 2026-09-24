@@ -2,5 +2,9 @@
 	{
 		"pkg": "@capacitor/filesystem",
 		"classpath": "com.capacitorjs.plugins.filesystem.FilesystemPlugin"
+	},
+	{
+		"pkg": "native-rapfi",
+		"classpath": "com.gomocalc.app.engine.rapfi.NativeRapfiPlugin"
 	}
 ]

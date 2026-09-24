@@ -1,16 +1,17 @@
 package com.gomocalc.app.engine;
 
+import com.gomocalc.app.engine.rapfi.JniRapfiNativeBridge;
 import com.gomocalc.app.engine.rapfi.RapfiNativeBridge;
 
-/** Rapfi team's integration file. No JNI library or WebAssembly engine is loaded here. */
+/** Rapfi adapter. Delegates to a native bridge that runs the in-process Rapfi engine over JNI. */
 public final class RapfiEngineAdapter implements GomokuEngine {
-    private static final String REASON = "Native Rapfi is not connected yet; browser WebAssembly Rapfi has been removed";
+    private static final String REASON = "Native Rapfi .so is unavailable for this ABI";
     private final RapfiNativeBridge bridge;
 
-    /** Keeps the current unavailable stub until a native bridge is supplied. */
-    public RapfiEngineAdapter() { this(null); }
+    /** Wires the real JNI bridge; degrades to unavailable when the .so is missing. */
+    public RapfiEngineAdapter() { this(new JniRapfiNativeBridge()); }
 
-    /** Injection point for the future Rapfi JNI/process implementation. */
+    /** Injection point for tests and alternative Rapfi transport implementations. */
     public RapfiEngineAdapter(RapfiNativeBridge bridge) { this.bridge = bridge; }
 
     @Override public EngineType getType() { return EngineType.RAPFI; }
