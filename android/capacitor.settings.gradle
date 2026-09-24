@@ -1,0 +1,6 @@
+// This standalone Android copy vendors the Capacitor Android modules locally.
+include ':capacitor-android'
+project(':capacitor-android').projectDir = new File('./capacitor-android')
+
+include ':capacitor-filesystem'
+project(':capacitor-filesystem').projectDir = new File('./capacitor-filesystem')

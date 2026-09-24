@@ -1,0 +1,5 @@
+{
+	"appId": "com.gomocalc.app",
+	"appName": "Gomoku Calculator",
+	"webDir": "dist"
+}
