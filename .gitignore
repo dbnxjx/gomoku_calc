@@ -1,4 +1,78 @@
+# ===== 你已有的权重/二进制 =====
 *.bin
 *.bin.gz
 weights/*.bin
 weights/*.bin.gz
+
+# ===== Android / Gradle 构建目录 =====
+.gradle/
+build/
+*/build/
+**/build/
+app/build/
+/captures/
+captures/
+.externalNativeBuild/
+.cxx/
+out/
+obj/
+
+# ===== Gradle 本地配置 =====
+local.properties
+gradle-app.setting
+.gradletasknamecache
+
+# ===== Android Studio / IntelliJ =====
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ===== Eclipse / 旧 Android 项目，按需启用 =====
+# bin/
+# gen/
+.classpath
+.project
+.settings/
+.metadata/
+
+# ===== NDK / CMake / Native =====
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.o
+*.obj
+
+# ===== Android 构建产物 =====
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.hprof
+
+# ===== 签名与密钥，禁止提交 =====
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+signing.properties
+fabric.properties
+crashlytics.properties
+
+# ===== 日志、临时文件 =====
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+
+# ===== Kotlin =====
+.kotlin/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,35 @@
+apply plugin: "com.android.application"
+
+android {
+    namespace "com.gomocalc.katagodemo"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.gomocalc.katagodemo"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "0.1"
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    androidResources {
+        // Keep the model as a stored asset so copying it does not require
+        // an extra decompression step at runtime.
+        noCompress += ["bin", "gz"]
+    }
+
+    packaging {
+        jniLibs {
+            // Extract libkatago.so to the app's nativeLibraryDir so Android
+            // can execute it. The app files directory may be mounted noexec.
+            useLegacyPackaging = true
+        }
+        resources {
+            excludes += ["META-INF/DEPENDENCIES", "META-INF/LICENSE", "META-INF/LICENSE.txt", "META-INF/NOTICE"]
+        }
+    }
+}
