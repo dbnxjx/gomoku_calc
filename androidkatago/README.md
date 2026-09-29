@@ -1,6 +1,6 @@
 # androidkatago
 
-这是 `KataGomo20250206` 的 Android ARM64 demo，使用 Eigen CPU 后端运行 Renju（五子棋）模型 `zhizi_renju28b_s1600.bin`。APK 当前默认配置为：
+这是 `KataGomo20250206` 的 Android ARM64 demo，运行 Renju（五子棋）模型 `zhizi_renju28b_s1600.bin`。APK 中的 `libkatago.so` 决定使用 Eigen CPU 还是 OpenCL GPU 后端；下面的默认配置适用于两种后端：
 
 ```text
 numSearchThreads = 8
@@ -23,6 +23,29 @@ $gradle = 'C:\Users\zz\.gradle\wrapper\dists\gradle-8.14.3-all\10utluxaxniiv4wxi
 ```
 
 APK 输出：`app/build/outputs/apk/debug/app-debug.apk`。
+
+### 编译 OpenCL ARM64 引擎
+
+Android NDK 不自带 OpenCL 开发包，因此不需要另行安装 OpenCL SDK。源码已经包含 Khronos 的 OpenCL 头文件，并在 Android 版本中通过 `dlopen`/`dlsym` 在运行时查找设备厂商的 `libOpenCL.so`。
+
+在仓库根目录执行：
+
+```powershell
+cmake -S KataGomo_fork-Gomoku_20250206/cpp -B build-android-opencl `
+  -G "MinGW Makefiles" `
+  -DCMAKE_TOOLCHAIN_FILE=D:/lots_of_app/android_ndk/android-ndk-r30/build/cmake/android.toolchain.cmake `
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 `
+  -DCMAKE_BUILD_TYPE=Release -DUSE_BACKEND=OPENCL -DNO_GIT_REVISION=1
+cmake --build build-android-opencl --parallel 4
+```
+
+将生成的 `build-android-opencl/katago` 复制为 `androidkatago/app/src/main/jniLibs/arm64-v8a/libkatago.so` 后再打包 APK。设备需要提供可用的 `libOpenCL.so`；如果没有，启动日志会显示没有 OpenCL 平台。OpenCL 库不应打进通用 APK，也不需要放到应用的 `files/` 目录。
+
+OpenCL 后端默认会自动选择 FP16 和设备调优参数。若要限制 GPU，可在 `gtp.cfg` 中加入例如 `openclDeviceToUse = 0`；OpenCL 后端的并发服务线程使用 `numNNServerThreadsPerModel`，`numEigenThreadsPerModel` 只对 Eigen 后端生效。
+
+Android 加载器会依次尝试应用公开的 OpenCL 库、厂商 `sphal` 命名空间以及厂商库文件描述符加载方式，并尝试常见的 `/vendor/lib64` 路径。普通应用是否能访问厂商 OpenCL 仍由手机系统的 linker namespace 和 SELinux 策略决定；如果日志出现 `android_get_exported_namespace is unavailable` 或 `CL_PLATFORM_NOT_FOUND_KHR`，说明该设备没有向普通 APK 暴露可用的 OpenCL 平台，需要改用 Eigen CPU 版本或厂商公开的 OpenCL 运行库。
+
+应用会把 KataGo 的 `HOME` 设置到 `files/katago-engine/katago-home`，因此 OpenCL 自动调优结果保存在应用私有目录下的 `.katago/opencltuning`，不会尝试写入 Android 的 `/data/.katago`。
 
 主要资源：
 

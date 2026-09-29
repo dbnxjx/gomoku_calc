@@ -702,11 +702,20 @@ public class MainActivity extends Activity {
 
         void start(LineListener lineListener) throws IOException {
             listener = lineListener;
-            process = new ProcessBuilder(engine.getAbsolutePath(), "gtp",
+            File homeDirectory = new File(config.getParentFile(), "katago-home");
+            if (!homeDirectory.exists() && !homeDirectory.mkdirs()) {
+                throw new IOException("Cannot create KataGo home directory: " + homeDirectory);
+            }
+            ProcessBuilder builder = new ProcessBuilder(engine.getAbsolutePath(), "gtp",
                     "-model", model.getAbsolutePath(), "-config", config.getAbsolutePath())
                     .directory(engine.getParentFile())
-                    .redirectErrorStream(true)
-                    .start();
+                    .redirectErrorStream(true);
+            // KataGo's OpenCL tuner stores its cache below $HOME/.katago.
+            // Android may expose an inherited HOME such as /data, which is
+            // not writable by an ordinary app. Point it at app-private storage.
+            builder.environment().put("HOME", homeDirectory.getAbsolutePath());
+            builder.environment().put("USERPROFILE", homeDirectory.getAbsolutePath());
+            process = builder.start();
             writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
             Thread reader = new Thread(() -> {
                 try (BufferedReader input = new BufferedReader(new InputStreamReader(

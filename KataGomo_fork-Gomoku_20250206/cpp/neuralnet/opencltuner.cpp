@@ -2774,7 +2774,12 @@ void OpenCLTuner::tune(
   out << "Beginning GPU tuning for " << device->info.name << " modelVersion " << modelInfo.version << " channels " << modelInfo.trunkNumChannels << endl;
 
   // Start a dummy thread to put a bunch of load on the GPU, so that we can encourage dynamic-clock-speed GPUs
-  // to stay at a high setting during the tuning.
+  // to stay at a high setting during the tuning. On Android this is deliberately disabled:
+  // several vendor OpenCL implementations (notably Mali) do not reliably support a
+  // second context/command queue concurrently with the tuning queue. In that case the
+  // tuning queue can start returning CL_INVALID_COMMAND_QUEUE. The dummy workload is
+  // only a clock-speed hint, so skipping it is safer than making tuning fail.
+#if !defined(__ANDROID__)
   WaitableFlag dummyInitializedOrDeadFlag;
   WaitableFlag dummyShouldStopFlag;
   std::thread dummyThread(
@@ -2786,6 +2791,9 @@ void OpenCLTuner::tune(
     std::ref(dummyShouldStopFlag)
   );
   dummyInitializedOrDeadFlag.waitUntilTrue();
+#else
+  out << "Skipping OpenCL dummy tuning thread on Android" << endl;
+#endif
 
   OpenCLTuneParams untunedConfig = OpenCLTuneParams();
   OpenCLTuneParams currentConfig = initialConfig;
@@ -2891,7 +2899,19 @@ void OpenCLTuner::tune(
       static constexpr double FP16_TENSORCORE_REQUIRED_SPEEDUP = 0.9;
       bool foundGoodFP16 = false;
 
-      bool shouldTestFP16TensorCores = testFP16TensorCoresMode == enabled_t::True || (testFP16TensorCoresMode == enabled_t::Auto && !foundGoodFP16);
+      // KataGo's WMMA kernels target desktop tensor-core implementations. Android
+      // drivers commonly expose cl_khr_fp16 (and even cl_arm_matrix_multiply)
+      // without supporting the WMMA source used here. Mali compilers can fail while
+      // allocating registers for hGemmWmma, which aborts the whole GTP process.
+      // Use the regular FP16 kernels on Android and leave tensor-core tuning to
+      // desktop platforms where it is known to be supported.
+#if defined(__ANDROID__)
+      const bool shouldTestFP16TensorCores = false;
+      if(testFP16TensorCoresMode != enabled_t::False)
+        out << "Skipping FP16 tensor-core tuning on Android; using regular FP16 kernels" << endl;
+#else
+      const bool shouldTestFP16TensorCores = testFP16TensorCoresMode == enabled_t::True || (testFP16TensorCoresMode == enabled_t::Auto && !foundGoodFP16);
+#endif
       if(shouldTestFP16TensorCores) {
         {
           OpenCLTuneParams result16;
@@ -3166,8 +3186,10 @@ void OpenCLTuner::tune(
   currentConfig.conv5x5.untransLocalSize1 = currentConfig.conv3x3.untransLocalSize1;
   currentConfig.conv5x5.untransLocalSize2 = currentConfig.conv3x3.untransLocalSize2;
 
+#if !defined(__ANDROID__)
   dummyShouldStopFlag.setPermanently(true);
   dummyThread.join();
+#endif
 
   out << "Done tuning" << endl;
   out << "------------------------------------------------------" << endl;
