@@ -75,4 +75,30 @@ table1_scale = 2.0
 model_type = 1
 table1 = [-1,0,0,1,2,6,6,6,9,9,16,20,30,30,100,500]
 table1_scale = 1.0
+
+# ---------------------------------------------------------------------------
+# Yixinboard-compatible analysis database (cross-session result cache).
+# Added by the Android integration: the engine is compiled with the DB backend,
+# and the app points it at a writable path with "YXSETDATABASE <abs path>"
+# at startup. enable_by_default stays false so no relative "rapfi.db" is
+# opened before the app supplies the real location.
+# ---------------------------------------------------------------------------
+[database]
+type = "yixindb"
+enable_by_default = false
+cache_size = 4096
+record_cache_size = 32768
+
+[database.yixindb]
+compressed_save = true
+save_on_close = true
+num_backups_on_save = 1
+
+[database.search]
+readonly_mode = false
+query_ply = 3
+pv_write_ply = 1
+pv_write_min_depth = 12
+nonpv_write_ply = 0
+nonpv_write_min_depth = 12
 )internalConfig";

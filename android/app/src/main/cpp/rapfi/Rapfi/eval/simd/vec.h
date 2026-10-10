@@ -1060,23 +1060,14 @@ namespace detail {
         }
 
         static FORCE_INLINE int16x8_t dot2_u7i8(R a, R b)
-{
-    uint8x16_t a_u8 = vreinterpretq_u8_s8(a);
-    int16x8_t  tl   = vmulq_s16(vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(a_u8))),
-                             vmovl_s8(vget_low_s8(b)));
-    int16x8_t  th   = vmulq_s16(vreinterpretq_s16_u16(vmovl_u8(vget_high_u8(a_u8))),
-                             vmovl_s8(vget_high_s8(b)));
-
-#if defined(__aarch64__)
-    // ARMv8 (AArch64) 架构：直接使用 vuzp1q_s16 和 vuzp2q_s16
-    return vqaddq_s16(vuzp1q_s16(tl, th), vuzp2q_s16(tl, th));
-#else
-    // ARMv7 (AArch32) 架构：用 vuzpq_s16 进行等效替换
-    // vuzpq_s16 返回一个结构体，其中 val[0] 等价于 vuzp1q，val[1] 等价于 vuzp2q
-    int16x8x2_t uzp_result = vuzpq_s16(tl, th);
-    return vqaddq_s16(uzp_result.val[0], uzp_result.val[1]);
-#endif
-}
+        {
+            uint8x16_t a_u8 = vreinterpretq_u8_s8(a);
+            int16x8_t  tl   = vmulq_s16(vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(a_u8))),
+                                     vmovl_s8(vget_low_s8(b)));
+            int16x8_t  th   = vmulq_s16(vreinterpretq_s16_u16(vmovl_u8(vget_high_u8(a_u8))),
+                                     vmovl_s8(vget_high_s8(b)));
+            return vqaddq_s16(vuzp1q_s16(tl, th), vuzp2q_s16(tl, th));
+        }
 
         /// Compute 4-element dot product of [u7x16] and [i8x16] then accumulate into [i32x4].
         static FORCE_INLINE void dot4_u7i8_accum(int32x4_t &acc, R a, R b)

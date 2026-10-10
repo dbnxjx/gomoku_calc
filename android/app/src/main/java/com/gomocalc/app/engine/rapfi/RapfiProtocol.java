@@ -20,6 +20,12 @@ public final class RapfiProtocol {
     public static final String YXBALANCEONE = "YXBALANCEONE";
     public static final String YXBALANCETWO = "YXBALANCETWO";
 
+    // ---- Yixinboard-compatible analysis database (cross-session cache) ----
+    /** Open/replace the database at the following absolute path (rest of the line). */
+    public static final String YXSETDATABASE = "YXSETDATABASE";
+    /** Flush in-memory records to the database file (no-op when nothing changed). */
+    public static final String YXSAVEDATABASE = "YXSAVEDATABASE";
+
     // ---- INFO parameters ----
     public static final String INFO_RULE = "RULE";
     public static final String INFO_THREAD_NUM = "THREAD_NUM";
@@ -34,6 +40,10 @@ public final class RapfiProtocol {
     public static final String INFO_SWAPABLE = "SWAPABLE";
     public static final String INFO_HASH_SIZE = "HASH_SIZE";
     public static final String INFO_TIME_LEFT = "TIME_LEFT";
+    /** 1 attaches the configured database, 0 detaches it. */
+    public static final String INFO_USEDATABASE = "USEDATABASE";
+    /** 1 disables database writes (read-only), 0 allows writes. */
+    public static final String INFO_DATABASE_READONLY = "DATABASE_READONLY";
 
     // ---- output tokens ----
     public static final String OK = "OK";
@@ -54,6 +64,32 @@ public final class RapfiProtocol {
     public static final String EVAL = "EVAL";
     public static final String WINRATE = "WINRATE";
     public static final String BESTLINE = "BESTLINE";
+
+    /** Engine message emitted after a database file is loaded, e.g.
+     *  "Loaded Yixin database (12 records) using 1 ms.". */
+    public static final String DB_LOADED_TAG = "Loaded Yixin database";
+
+    /**
+     * Extract the record count from the engine's database-loaded message, e.g.
+     * {@code "Loaded Yixin database (12 records) using 1 ms."} -> 12.
+     *
+     * @return the record count, or null when the line is not a database-loaded message.
+     */
+    public static Integer parseDatabaseRecordCount(String line) {
+        if (line == null || !line.contains(DB_LOADED_TAG))
+            return null;
+        int open = line.indexOf('(', line.indexOf(DB_LOADED_TAG));
+        if (open < 0)
+            return null;
+        int close = line.indexOf(' ', open + 1);
+        if (close < 0)
+            return null;
+        try {
+            return Integer.valueOf(Integer.parseInt(line.substring(open + 1, close).trim()));
+        } catch (NumberFormatException error) {
+            return null;
+        }
+    }
 
     /** Rapfi rule ids as sent through {@code INFO RULE <id>}. */
     public static int ruleId(EngineOptions.Rule rule) {

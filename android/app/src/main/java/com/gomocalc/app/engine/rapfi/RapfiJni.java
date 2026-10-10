@@ -30,6 +30,29 @@ public final class RapfiJni implements AutoCloseable {
         LIBRARY_AVAILABLE = loaded;
     }
 
+    /**
+     * Absolute path of the Yixinboard-compatible analysis database, or null to keep
+     * cross-session persistence disabled. Configured once by the app layer (which owns the
+     * writable directory) before {@link #start(String)}.
+     */
+    private static volatile String databasePath;
+
+    /** Set the analysis database path; the engine opens it on the next {@link #start}. */
+    public static void configureDatabase(String absolutePath) {
+        databasePath = absolutePath;
+    }
+
+    /** @return the configured analysis database path, or null when disabled. */
+    public static String getDatabasePath() {
+        return databasePath;
+    }
+
+    /** @return true when cross-session analysis persistence is configured. */
+    public static boolean isDatabaseConfigured() {
+        String path = databasePath;
+        return path != null && !path.isEmpty();
+    }
+
     private final Listener listener;
     private volatile boolean started;
 
@@ -57,6 +80,12 @@ public final class RapfiJni implements AutoCloseable {
         if (rc != 0)
             throw new IllegalStateException("Rapfi config failed to load (code " + rc + ")");
         started = true;
+
+        // Open the cross-session analysis database at the app-provided writable path.
+        // YXSETDATABASE takes the rest of the line, so paths containing spaces are safe.
+        String dbPath = databasePath;
+        if (dbPath != null && !dbPath.isEmpty())
+            nativeSendCommand(RapfiProtocol.YXSETDATABASE + " " + dbPath);
     }
 
     /** Send one protocol command line, e.g. {@code INFO RULE 0} or {@code YXNBEST 3}. */
@@ -73,6 +102,15 @@ public final class RapfiJni implements AutoCloseable {
     /** @return true while the engine is searching. */
     public boolean isThinking() {
         return nativeIsThinking() != 0;
+    }
+
+    /**
+     * Flush accumulated analysis records to the database file. The engine skips the write
+     * when nothing changed, so this is cheap to call after every completed search.
+     */
+    public void saveDatabase() {
+        if (started)
+            nativeSendCommand(RapfiProtocol.YXSAVEDATABASE);
     }
 
     @Override
