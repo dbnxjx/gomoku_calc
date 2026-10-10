@@ -3,6 +3,7 @@
 *.bin.gz
 weights/*.bin
 weights/*.bin.gz
+*.onnx
 
 # ===== Android / Gradle 构建目录 =====
 .gradle/
