@@ -376,8 +376,11 @@ struct ComputeContext {
           useFP16Storage = true;
         }
         useFP16Storage = tuneParams.canUseFP16Storage;
-        // Only use FP16 compute if not using tensor cores
-        useFP16Compute = tuneParams.canUseFP16Storage && !tuneParams.canUseFP16TensorCores;
+        // FP16 compute is independent from FP16 storage.  Some Android
+        // devices can execute FP16 arithmetic but do not support FP16 buffer
+        // storage, so gate this path with its own capability flag.
+        // Tensor-core kernels remain preferred when the tuner found them.
+        useFP16Compute = tuneParams.canUseFP16Compute && !tuneParams.canUseFP16TensorCores;
         useFP16TensorCores = tuneParams.canUseFP16TensorCores;
         useFP16TensorCoresFor1x1 = tuneParams.canUseFP16TensorCoresFor1x1;
       }
@@ -526,7 +529,20 @@ struct ComputeHandleInternal {
 
     const InitializedDevice* device = computeContext->devicesContext->findGpuExn(gpuIdx);
     clContext = device->context;
-    commandQueue = device->commandQueue;
+    // Keep the device discovery/tuning queue separate from inference queues.
+    // The old implementation reused one in-order queue for every neural-net
+    // server thread on a device.  A blocking readback at the end of one
+    // inference could therefore serialize all server threads, even when the
+    // search had produced enough work to keep the GPU busy.  OpenCL command
+    // queues are independent, so give each ComputeHandle its own queue and
+    // let the driver overlap work from multiple server threads.
+    cl_int queueErr;
+#ifdef PROFILE_KERNELS
+    commandQueue = clCreateCommandQueue(clContext, device->info.deviceId, CL_QUEUE_PROFILING_ENABLE, &queueErr);
+#else
+    commandQueue = clCreateCommandQueue(clContext, device->info.deviceId, 0, &queueErr);
+#endif
+    CHECK_ERR(queueErr);
     CompiledPrograms* progs = computeContext->compiledProgramsByDeviceId[device->info.deviceId];
     assert(progs != NULL);
     tuneParams = progs->tuneParams;
@@ -601,6 +617,12 @@ struct ComputeHandleInternal {
   }
 
   ~ComputeHandleInternal() {
+    if(commandQueue != NULL) {
+      clFlush(commandQueue);
+      clFinish(commandQueue);
+      clReleaseCommandQueue(commandQueue);
+      commandQueue = NULL;
+    }
     for(int i = 0; i<profileEvents.size(); i++) {
       if(profileEvents[i] != NULL)
         clReleaseEvent(profileEvents[i]);
@@ -2896,7 +2918,12 @@ void NeuralNet::getOutput(
     buffers->convWorkspace2
   );
 
-  cl_bool blocking = CL_TRUE;
+  // Queue all result copies before waiting.  Five separate blocking reads
+  // made the Android driver perform a host/device synchronization for every
+  // small output tensor (policy, value, score, and ownership).  The commands
+  // are ordered in the same in-order queue, so one finish provides the same
+  // completion guarantee with less driver overhead.
+  cl_bool blocking = CL_FALSE;
   err = clEnqueueReadBuffer(
     handle->commandQueue, buffers->policyPass, blocking, 0,
     inputBuffers->singlePolicyPassResultElts*sizeof(float)*batchSize, inputBuffers->policyPassResults, 0, NULL, NULL
@@ -2946,6 +2973,8 @@ void NeuralNet::getOutput(
     );
     CHECK_ERR(err);
   }
+  err = clFinish(handle->commandQueue);
+  CHECK_ERR(err);
 
   #ifdef PROFILE_KERNELS
   {

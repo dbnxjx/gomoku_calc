@@ -154,7 +154,10 @@ NNEvaluator::NNEvaluator(
   if(!debugSkipNeuralNet) {
     vector<int> gpuIdxs = gpuIdxByServerThread;
     std::sort(gpuIdxs.begin(), gpuIdxs.end());
-    std::unique(gpuIdxs.begin(), gpuIdxs.end());
+    // Multiple neural-net server threads may intentionally share one GPU.
+    // The compute context only needs one OpenCL device entry per unique GPU;
+    // each server thread gets its own command queue when its handle is made.
+    gpuIdxs.erase(std::unique(gpuIdxs.begin(), gpuIdxs.end()), gpuIdxs.end());
     loadedModel = NeuralNet::loadModelFile(modelFileName,expectedSha256);
     modelVersion = NeuralNet::getModelVersion(loadedModel);
     inputsVersion = NNModelVersion::getInputsVersion(modelVersion);

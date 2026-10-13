@@ -38,7 +38,7 @@ public class MainActivity extends Activity {
     private static final String MODEL_FILE_NAME = "zhizi_renju28b_s1600.bin.gz";
     private static final String CONFIG_ASSET = "gtp.cfg";
     private static final int SEARCH_THREADS = 8;
-    private static final int EIGEN_THREADS = 4;
+    private static final int NN_SERVER_THREADS = 2;
     private static final int ANALYSIS_INTERVAL_CS = 10;
     private static final int MAX_OUTPUT_CHARS = 120_000;
 
@@ -454,8 +454,8 @@ public class MainActivity extends Activity {
                 startupResponsePending = false;
                 if (--startupResponsesRemaining == 0) {
                     engineReady = true;
-                    append(String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个 Eigen 后端线程。\n",
-                            SEARCH_THREADS, EIGEN_THREADS));
+                    append(String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程。\n",
+                            SEARCH_THREADS, NN_SERVER_THREADS));
                     setEngineControls(true);
                 }
             }

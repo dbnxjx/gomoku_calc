@@ -1,0 +1,165 @@
+{
+  "runtime": {
+    "onnxruntime": "1.28.0",
+    "providers": [
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "threads": 8
+  },
+  "positions": {
+    "count": 104,
+    "board_size": 15,
+    "renju_forbidden_features": true,
+    "sample_plies": [
+      3,
+      5,
+      7,
+      9
+    ],
+    "games": 26
+  },
+  "models": {
+    "fp32": {
+      "file_size_bytes": 293099607,
+      "input_type": "<class 'numpy.float32'>",
+      "batch1_seconds": 19.989050500000303,
+      "batch1_nn_eval_per_second": 5.202848429443831,
+      "batch_size": 8,
+      "batch_seconds": 14.66655929999979,
+      "batch_nn_eval_per_second": 7.090960999966876
+    },
+    "fp16": {
+      "file_size_bytes": 146963282,
+      "input_type": "<class 'numpy.float16'>",
+      "batch1_seconds": 19.50637689999712,
+      "batch1_nn_eval_per_second": 5.331589794105503,
+      "batch_size": 8,
+      "batch_seconds": 14.882073799999489,
+      "batch_nn_eval_per_second": 6.988273368191708,
+      "difference_vs_fp32": {
+        "policy": {
+          "mae": 0.0011333901202306151,
+          "p99_abs": 0.006433525122702122,
+          "max_abs": 0.08851456642150879
+        },
+        "value": {
+          "mae": 0.002858741208910942,
+          "p99_abs": 0.00887340772897005,
+          "max_abs": 0.01116788387298584
+        },
+        "miscvalue": {
+          "mae": 0.002284514717757702,
+          "p99_abs": 0.010190527886152267,
+          "max_abs": 0.013612747192382812
+        },
+        "moremiscvalue": {
+          "mae": 0.0037290886975824833,
+          "p99_abs": 0.018909567967057228,
+          "max_abs": 0.027133941650390625
+        },
+        "ownership": {
+          "mae": 8.09670309536159e-05,
+          "p99_abs": 0.00047219544649124146,
+          "max_abs": 0.008524864912033081
+        },
+        "scoring": {
+          "mae": 7.637709495611489e-05,
+          "p99_abs": 0.00038883776869624853,
+          "max_abs": 0.006759554147720337
+        },
+        "futurepos": {
+          "mae": 9.822628635447472e-05,
+          "p99_abs": 0.0012412189971655607,
+          "max_abs": 0.017317771911621094
+        },
+        "seki": {
+          "mae": 0.0009795568184927106,
+          "p99_abs": 0.0035257386043667793,
+          "max_abs": 0.009916305541992188
+        },
+        "scorebelief": {
+          "mae": 0.031249875202775,
+          "p99_abs": 0.11192445456981659,
+          "max_abs": 0.12646102905273438
+        },
+        "policy_probability_mae": 3.897589389776189e-06,
+        "policy_top1_match_all_heads": 1.0,
+        "policy_top1_match_head0": 1.0,
+        "value_probability_mae": 7.806466593617958e-06,
+        "policy_top1_match_head0_by_ply": {
+          "3": 1.0,
+          "5": 1.0,
+          "7": 1.0,
+          "9": 1.0
+        }
+      }
+    },
+    "uint8": {
+      "file_size_bytes": 75176896,
+      "input_type": "<class 'numpy.float32'>",
+      "batch1_seconds": 34.407038600002124,
+      "batch1_nn_eval_per_second": 3.0226373507190933,
+      "batch_size": 8,
+      "batch_seconds": 29.879505700002483,
+      "batch_nn_eval_per_second": 3.480646602530354,
+      "difference_vs_fp32": {
+        "policy": {
+          "mae": 0.12893688678741455,
+          "p99_abs": 0.4498012959957123,
+          "max_abs": 4.267597198486328
+        },
+        "value": {
+          "mae": 0.31121090054512024,
+          "p99_abs": 0.6023243069648743,
+          "max_abs": 0.6642638444900513
+        },
+        "miscvalue": {
+          "mae": 0.23833507299423218,
+          "p99_abs": 0.660555899143219,
+          "max_abs": 0.7708139419555664
+        },
+        "moremiscvalue": {
+          "mae": 0.2870129644870758,
+          "p99_abs": 1.4456135034561157,
+          "max_abs": 2.0355701446533203
+        },
+        "ownership": {
+          "mae": 0.07796977460384369,
+          "p99_abs": 0.24091356992721558,
+          "max_abs": 0.3188859820365906
+        },
+        "scoring": {
+          "mae": 0.03568399325013161,
+          "p99_abs": 0.12634949386119843,
+          "max_abs": 0.17616093158721924
+        },
+        "futurepos": {
+          "mae": 0.01364064496010542,
+          "p99_abs": 0.07507778704166412,
+          "max_abs": 0.6079856157302856
+        },
+        "seki": {
+          "mae": 0.11420951783657074,
+          "p99_abs": 0.35775285959243774,
+          "max_abs": 0.7105259895324707
+        },
+        "scorebelief": {
+          "mae": 1.6624528169631958,
+          "p99_abs": 4.774566650390625,
+          "max_abs": 6.465702056884766
+        },
+        "policy_probability_mae": 0.0003958381508865683,
+        "policy_top1_match_all_heads": 0.8942307692307693,
+        "policy_top1_match_head0": 0.9326923076923077,
+        "value_probability_mae": 0.0002473682837091781,
+        "policy_top1_match_head0_by_ply": {
+          "3": 0.8846153846153846,
+          "5": 0.9615384615384616,
+          "7": 0.9615384615384616,
+          "9": 0.9230769230769231
+        }
+      }
+    }
+  }
+}
