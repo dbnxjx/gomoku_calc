@@ -7,6 +7,7 @@ numSearchThreads = 8
 numEigenThreadsPerModel = 4
 numNNServerThreadsPerModel = 2
 nnMaxBatchSize = 8
+openclUseFP16 = false
 maxVisits = 32
 maxTime = 30.0
 ```
@@ -42,7 +43,7 @@ cmake --build build-android-opencl --parallel 4
 
 将生成的 `build-android-opencl/katago` 复制为 `androidkatago/app/src/main/jniLibs/arm64-v8a/libkatago.so` 后再打包 APK。设备需要提供可用的 `libOpenCL.so`；如果没有，启动日志会显示没有 OpenCL 平台。OpenCL 库不应打进通用 APK，也不需要放到应用的 `files/` 目录。
 
-OpenCL 后端默认会自动选择 FP16 和设备调优参数。若要限制 GPU，可在 `gtp.cfg` 中加入例如 `openclDeviceToUse = 0`；OpenCL 后端的并发服务线程使用 `numNNServerThreadsPerModel`，`numEigenThreadsPerModel` 只对 Eigen 后端生效。Android demo 默认使用 2 个 OpenCL 网络服务线程，每个线程有独立的 command queue；如果某个厂商驱动不稳定，可将它改回 1。调优缓存会按设备和 15x15 棋盘保存，日志出现 `Loaded tuning parameters from:` 表示不会每次重新调优。
+OpenCL 后端固定使用 FP32，避免不同 Android 驱动的 FP16 精度和 kernel 编译差异。若要限制 GPU，可在 `gtp.cfg` 中加入例如 `openclDeviceToUse = 0`；OpenCL 后端的并发服务线程使用 `numNNServerThreadsPerModel`，`numEigenThreadsPerModel` 只对 Eigen 后端生效。Android demo 默认使用 2 个 OpenCL 网络服务线程，每个线程有独立的 command queue；如果某个厂商驱动不稳定，可将它改回 1。调优缓存会按设备和 15x15 棋盘保存，日志出现 `Loaded tuning parameters from:` 表示不会每次重新调优。
 
 Android 加载器会依次尝试应用公开的 OpenCL 库、厂商 `sphal` 命名空间以及厂商库文件描述符加载方式，并尝试常见的 `/vendor/lib64` 路径。普通应用是否能访问厂商 OpenCL 仍由手机系统的 linker namespace 和 SELinux 策略决定；如果日志出现 `android_get_exported_namespace is unavailable` 或 `CL_PLATFORM_NOT_FOUND_KHR`，说明该设备没有向普通 APK 暴露可用的 OpenCL 平台，需要改用 Eigen CPU 版本或厂商公开的 OpenCL 运行库。
 
@@ -50,15 +51,7 @@ Android 加载器会依次尝试应用公开的 OpenCL 库、厂商 `sphal` 命�
 
 ### 自动测速和保存配置
 
-界面顶部的 **自动测速并保存** 按钮会停止当前会话，依次测试搜索线程、OpenCL 后端线程、批大小和 FP16 模式的组合。每组配置会在一个局面上预热，再换到另一个局面，用 `search_debug` 返回的实际 `Root visits` 除以搜索耗时计算 `visits/s`；测速专门关闭 NN cache，避免缓存命中造成虚假的高速度。单组超过 90 秒会自动终止并继续下一组。测速结束后，最快组合会保存到应用私有文件 `katago-best.properties`，并立即用该组合重新启动引擎。以后点击 **启动引擎** 会自动加载这个结果，不需要再手工修改 `gtp.cfg`。
-
-测速会比较 `openclUseFP16=auto`、`false` 和 `true`。`auto` 会使用 OpenCL 调优器对 FP16 存储、FP16 计算和矩阵专用路径分别测试，日志中的：
-
-```text
-OpenCL backend thread ... FP16Storage true/false FP16Compute true/false FP16TensorCores true/false FP16TensorCoresFor1x1 true/false
-```
-
-才是实际使用状态。强制 `true` 如果在设备驱动上卡住或失败，不会被保存为最佳配置；通常应保留 `auto`，除非测速明确证明强制模式更快且稳定。测速结果和实际 FP16 状态会同时显示在输出区域。
+界面顶部的 **自动测速并保存** 按钮会停止当前会话，依次测试搜索线程、OpenCL 后端线程和批大小的组合，所有组合固定使用 FP32。每组配置会在一个局面上预热，再换到另一个局面，用 `search_debug` 返回的实际 `Root visits` 除以搜索耗时计算 `visits/s`；测速专门关闭 NN cache，避免缓存命中造成虚假的高速度。单组超过 90 秒会自动终止并继续下一组。测速结束后，最快组合会保存到应用私有文件 `katago-best.properties`，并立即用该组合重新启动引擎。以后点击 **启动引擎** 会自动加载这个结果，不需要再手工修改 `gtp.cfg`。
 
 主要资源：
 

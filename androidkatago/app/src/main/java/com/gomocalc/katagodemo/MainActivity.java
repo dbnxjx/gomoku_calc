@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
     private static final int ANALYSIS_INTERVAL_CS = 10;
     private static final int MAX_OUTPUT_CHARS = 120_000;
     private static final String BEST_CONFIG_FILE_NAME = "katago-best.properties";
-    private static final int BENCHMARK_VERSION = 2;
+    private static final int BENCHMARK_VERSION = 3;
     private static final int BENCHMARK_VISITS = 64;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -257,7 +257,7 @@ public class MainActivity extends Activity {
             start.setEnabled(false);
         });
         setEngineControls(false);
-        append("开始自动测速：每组配置先预热，再执行 64 visits 的 genmove；另比较 OpenCL FP16 自动、关闭和强制开启。\n");
+        append("开始自动测速：固定使用 OpenCL FP32；每组配置先预热，再执行 64 visits 的搜索。\n");
         worker.execute(() -> {
             try {
                 closeSession();
@@ -290,16 +290,14 @@ public class MainActivity extends Activity {
 
     private BenchmarkResult benchmarkConfigurations(File engine, File config, File model) {
         BenchmarkConfig[] candidates = new BenchmarkConfig[]{
-                new BenchmarkConfig(1, 1, 1, "auto", 0.0),
-                new BenchmarkConfig(2, 1, 4, "auto", 0.0),
-                new BenchmarkConfig(4, 1, 4, "auto", 0.0),
-                new BenchmarkConfig(4, 2, 8, "auto", 0.0),
-                new BenchmarkConfig(8, 1, 8, "auto", 0.0),
-                new BenchmarkConfig(8, 2, 8, "auto", 0.0),
-                new BenchmarkConfig(8, 2, 4, "auto", 0.0),
-                new BenchmarkConfig(8, 3, 8, "auto", 0.0),
-                new BenchmarkConfig(8, 2, 8, "false", 0.0),
-                new BenchmarkConfig(8, 2, 8, "true", 0.0)
+                new BenchmarkConfig(1, 1, 1, 0.0),
+                new BenchmarkConfig(2, 1, 4, 0.0),
+                new BenchmarkConfig(4, 1, 4, 0.0),
+                new BenchmarkConfig(4, 2, 8, 0.0),
+                new BenchmarkConfig(8, 1, 8, 0.0),
+                new BenchmarkConfig(8, 2, 8, 0.0),
+                new BenchmarkConfig(8, 2, 4, 0.0),
+                new BenchmarkConfig(8, 3, 8, 0.0)
         };
         BenchmarkConfig best = null;
         for (int i = 0; i < candidates.length; i++) {
@@ -310,14 +308,14 @@ public class MainActivity extends Activity {
                         candidate.nnServerThreads, candidate.batchSize));
                 double visitsPerSecond = benchmarkOne(engine, config, model, candidate);
                 candidate.visitsPerSecond = visitsPerSecond;
-                append(String.format(Locale.US, "  FP16=%s，实际 %d visits，结果 %.2f visits/s%s\n",
-                        candidate.fp16Mode, candidate.rootVisits, visitsPerSecond,
+                append(String.format(Locale.US, "  FP32，实际 %d visits，结果 %.2f visits/s%s\n",
+                        candidate.rootVisits, visitsPerSecond,
                         candidate.fp16Details == null ? "" : "；实际路径 " + candidate.fp16Details));
                 if (best == null || visitsPerSecond > best.visitsPerSecond) {
                     best = candidate;
                 }
             } catch (Exception error) {
-                append("  FP16=" + candidate.fp16Mode + " 该组合失败：" + error.getMessage() + "\n");
+                append("  FP32 该组合失败：" + error.getMessage() + "\n");
             }
         }
         return new BenchmarkResult(best);
@@ -428,7 +426,6 @@ public class MainActivity extends Activity {
         properties.setProperty("benchmarkVersion", Integer.toString(BENCHMARK_VERSION));
         properties.setProperty("nnServerThreads", Integer.toString(config.nnServerThreads));
         properties.setProperty("batchSize", Integer.toString(config.batchSize));
-        properties.setProperty("fp16Mode", config.fp16Mode);
         properties.setProperty("visitsPerSecond", String.format(Locale.US, "%.6f", config.visitsPerSecond));
         File target = getFileStreamPath(BEST_CONFIG_FILE_NAME);
         File temporary = new File(target.getParentFile(), target.getName() + ".part");
@@ -458,15 +455,13 @@ public class MainActivity extends Activity {
             int searchThreads = Integer.parseInt(properties.getProperty("searchThreads"));
             int nnServerThreads = Integer.parseInt(properties.getProperty("nnServerThreads"));
             int batchSize = Integer.parseInt(properties.getProperty("batchSize"));
-            String fp16Mode = properties.getProperty("fp16Mode", "auto");
             double visitsPerSecond = Double.parseDouble(properties.getProperty("visitsPerSecond", "0"));
             if (searchThreads < 1 || searchThreads > 64 || nnServerThreads < 1 || nnServerThreads > 8
                     || batchSize < 1 || batchSize > 64
-                    || !(fp16Mode.equals("auto") || fp16Mode.equals("true") || fp16Mode.equals("false"))
                     || !Double.isFinite(visitsPerSecond)) {
                 return null;
             }
-            return new BenchmarkConfig(searchThreads, nnServerThreads, batchSize, fp16Mode, visitsPerSecond);
+            return new BenchmarkConfig(searchThreads, nnServerThreads, batchSize, visitsPerSecond);
         } catch (Exception ignored) {
             return null;
         }
@@ -474,12 +469,12 @@ public class MainActivity extends Activity {
 
     private void updateBestConfigStatus(BenchmarkConfig config) {
         if (config == null) {
-            benchmarkStatus.setText("尚未测速，将使用默认 OpenCL 配置");
+            benchmarkStatus.setText("尚未测速，将使用默认 OpenCL FP32 配置");
         } else {
             benchmarkStatus.setText(String.format(Locale.US,
-                    "已保存：线程 %d / 后端 %d / 批 %d / FP16 %s，%.2f visits/s",
+                    "已保存：线程 %d / 后端 %d / 批 %d / FP32，%.2f visits/s",
                     config.searchThreads, config.nnServerThreads, config.batchSize,
-                    config.fp16Mode, config.visitsPerSecond));
+                    config.visitsPerSecond));
         }
     }
 
@@ -733,10 +728,10 @@ public class MainActivity extends Activity {
                     engineReady = true;
                     BenchmarkConfig running = activeConfig;
                     append(running == null
-                            ? String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程。\n",
+                            ? String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程、FP32。\n",
                             SEARCH_THREADS, NN_SERVER_THREADS)
-                            : String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程、批大小 %d、FP16 %s。\n",
-                            running.searchThreads, running.nnServerThreads, running.batchSize, running.fp16Mode));
+                            : String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程、批大小 %d、FP32。\n",
+                            running.searchThreads, running.nnServerThreads, running.batchSize));
                     setEngineControls(true);
                     runOnUiThread(() -> benchmark.setEnabled(true));
                 }
@@ -972,17 +967,14 @@ public class MainActivity extends Activity {
         final int searchThreads;
         final int nnServerThreads;
         final int batchSize;
-        final String fp16Mode;
         String fp16Details;
         long rootVisits;
         double visitsPerSecond;
 
-        BenchmarkConfig(int searchThreads, int nnServerThreads, int batchSize, String fp16Mode,
-                        double visitsPerSecond) {
+        BenchmarkConfig(int searchThreads, int nnServerThreads, int batchSize, double visitsPerSecond) {
             this.searchThreads = searchThreads;
             this.nnServerThreads = nnServerThreads;
             this.batchSize = batchSize;
-            this.fp16Mode = fp16Mode;
             this.visitsPerSecond = visitsPerSecond;
         }
 
@@ -990,7 +982,7 @@ public class MainActivity extends Activity {
             return "numSearchThreads=" + searchThreads
                     + ",numNNServerThreadsPerModel=" + nnServerThreads
                     + ",nnMaxBatchSize=" + batchSize
-                    + ",openclUseFP16=" + fp16Mode;
+                    + ",openclUseFP16=false";
         }
     }
 
