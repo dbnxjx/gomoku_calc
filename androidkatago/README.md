@@ -48,6 +48,18 @@ Android 加载器会依次尝试应用公开的 OpenCL 库、厂商 `sphal` 命�
 
 应用会把 KataGo 的 `HOME` 设置到 `files/katago-engine/katago-home`，因此 OpenCL 自动调优结果保存在应用私有目录下的 `.katago/opencltuning`，不会尝试写入 Android 的 `/data/.katago`。
 
+### 自动测速和保存配置
+
+界面顶部的 **自动测速并保存** 按钮会停止当前会话，依次测试搜索线程、OpenCL 后端线程、批大小和 FP16 模式的组合。每组配置会在一个局面上预热，再换到另一个局面，用 `search_debug` 返回的实际 `Root visits` 除以搜索耗时计算 `visits/s`；测速专门关闭 NN cache，避免缓存命中造成虚假的高速度。单组超过 90 秒会自动终止并继续下一组。测速结束后，最快组合会保存到应用私有文件 `katago-best.properties`，并立即用该组合重新启动引擎。以后点击 **启动引擎** 会自动加载这个结果，不需要再手工修改 `gtp.cfg`。
+
+测速会比较 `openclUseFP16=auto`、`false` 和 `true`。`auto` 会使用 OpenCL 调优器对 FP16 存储、FP16 计算和矩阵专用路径分别测试，日志中的：
+
+```text
+OpenCL backend thread ... FP16Storage true/false FP16Compute true/false FP16TensorCores true/false FP16TensorCoresFor1x1 true/false
+```
+
+才是实际使用状态。强制 `true` 如果在设备驱动上卡住或失败，不会被保存为最佳配置；通常应保留 `auto`，除非测速明确证明强制模式更快且稳定。测速结果和实际 FP16 状态会同时显示在输出区域。
+
 主要资源：
 
 - `app/src/main/jniLibs/arm64-v8a/libkatago.so`

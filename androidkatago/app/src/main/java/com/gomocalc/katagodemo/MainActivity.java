@@ -17,6 +17,7 @@ import android.widget.TextView;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +30,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,6 +45,9 @@ public class MainActivity extends Activity {
     private static final int NN_SERVER_THREADS = 2;
     private static final int ANALYSIS_INTERVAL_CS = 10;
     private static final int MAX_OUTPUT_CHARS = 120_000;
+    private static final String BEST_CONFIG_FILE_NAME = "katago-best.properties";
+    private static final int BENCHMARK_VERSION = 2;
+    private static final int BENCHMARK_VISITS = 64;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Map<String, AnalysisPoint> analysisPoints = new LinkedHashMap<>();
@@ -58,6 +65,8 @@ public class MainActivity extends Activity {
     private Button clear;
     private Button showBoard;
     private Button play;
+    private Button benchmark;
+    private TextView benchmarkStatus;
     // Commands are written by the worker while responses are read by the
     // KataGo reader thread, so these flags must be visible to both threads.
     private volatile boolean analysisRunning;
@@ -70,6 +79,7 @@ public class MainActivity extends Activity {
     private volatile boolean engineReady;
     private volatile boolean analysisStopRequested;
     private volatile boolean analysisStopResponsePending;
+    private volatile BenchmarkConfig activeConfig;
 
     @Override
     public void onCreate(Bundle state) {
@@ -89,8 +99,18 @@ public class MainActivity extends Activity {
         hint.setText("长驻 GTP 会话，多线程搜索，支持落子、悔棋、局面和实时分析");
         root.addView(hint);
 
+        LinearLayout engineRow = new LinearLayout(this);
+        engineRow.setOrientation(LinearLayout.HORIZONTAL);
         start = button("启动引擎");
-        root.addView(start);
+        engineRow.addView(start, new LinearLayout.LayoutParams(0, -2, 1));
+        benchmark = button("自动测速并保存");
+        engineRow.addView(benchmark, new LinearLayout.LayoutParams(0, -2, 1));
+        root.addView(engineRow);
+
+        benchmarkStatus = new TextView(this);
+        benchmarkStatus.setTextSize(12);
+        benchmarkStatus.setTextColor(Color.DKGRAY);
+        root.addView(benchmarkStatus);
 
         LinearLayout moveRow = new LinearLayout(this);
         moveRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -153,6 +173,7 @@ public class MainActivity extends Activity {
         setContentView(root);
 
         start.setOnClickListener(v -> startEngine());
+        benchmark.setOnClickListener(v -> runBenchmark());
         genmove.setOnClickListener(v -> sendCommand("genmove " + color.getSelectedItem()));
         undo.setOnClickListener(v -> sendCommand("undo"));
         clear.setOnClickListener(v -> sendCommand("clear_board"));
@@ -163,6 +184,7 @@ public class MainActivity extends Activity {
         stopAnalyze.setOnClickListener(v -> stopAnalysis());
         setEngineControls(false);
         stopAnalyze.setEnabled(false);
+        updateBestConfigStatus(loadBestConfig());
     }
 
     private Button button(String text) {
@@ -175,35 +197,290 @@ public class MainActivity extends Activity {
         setEngineControls(false);
         // Keep the launch button disabled while the model is being loaded so
         // a second tap cannot create another long-lived KataGo process.
-        runOnUiThread(() -> start.setEnabled(false));
+        runOnUiThread(() -> {
+            start.setEnabled(false);
+            benchmark.setEnabled(false);
+        });
         append("启动 KataGo...\n");
         worker.execute(() -> {
             try {
-                append("检查资源...\n");
-                File engine = nativeEngine();
-                File config = prepareAsset(CONFIG_ASSET, CONFIG_ASSET, true);
-                File model = prepareAsset(MODEL_ASSET, MODEL_FILE_NAME, false);
-                append("资源就绪，创建长驻 GTP 进程...\n");
-                session = new KataGoSession(engine, config, model);
-                session.start(this::onEngineLine);
-                append("进程已创建，等待 GTP 初始化...\n");
-                engineReady = false;
-                startupResponsesRemaining = 5;
-                startupResponsePending = false;
-                sendToSession("protocol_version");
-                sendToSession("name");
-                sendToSession("version");
-                sendToSession("boardsize 15");
-                sendToSession("clear_board");
-                append("已发送初始化命令，等待 GTP 就绪...\n");
+                startEngineOnWorker();
             } catch (Exception error) {
                 append("启动失败: " + error + "\n");
                 engineReady = false;
                 startupResponsesRemaining = 0;
                 closeSession();
-                runOnUiThread(() -> setEngineControls(false));
+                runOnUiThread(() -> {
+                    setEngineControls(false);
+                    benchmark.setEnabled(true);
+                    start.setEnabled(true);
+                });
             }
         });
+    }
+
+    private void startEngineOnWorker() throws Exception {
+        append("检查资源...\n");
+        File engine = nativeEngine();
+        File config = prepareAsset(CONFIG_ASSET, CONFIG_ASSET, true);
+        File model = prepareAsset(MODEL_ASSET, MODEL_FILE_NAME, false);
+        BenchmarkConfig best = loadBestConfig();
+        activeConfig = best;
+        String override = best == null ? null : best.toOverrideConfig();
+        if (best != null) {
+            append(String.format(Locale.US,
+                    "使用已保存的最快配置：搜索线程 %d，后端线程 %d，批大小 %d（%.2f visits/s）。\n",
+                    best.searchThreads, best.nnServerThreads, best.batchSize, best.visitsPerSecond));
+        }
+        append("资源就绪，创建长驻 GTP 进程...\n");
+        session = new KataGoSession(engine, config, model, override);
+        session.start(this::onEngineLine);
+        append("进程已创建，等待 GTP 初始化...\n");
+        engineReady = false;
+        startupResponsesRemaining = 5;
+        startupResponsePending = false;
+        sendToSession("protocol_version");
+        sendToSession("name");
+        sendToSession("version");
+        sendToSession("boardsize 15");
+        sendToSession("clear_board");
+        append("已发送初始化命令，等待 GTP 就绪...\n");
+    }
+
+    private void runBenchmark() {
+        if (analysisRunning) {
+            append("请先停止流式分析，再开始测速。\n");
+            return;
+        }
+        runOnUiThread(() -> {
+            benchmark.setEnabled(false);
+            start.setEnabled(false);
+        });
+        setEngineControls(false);
+        append("开始自动测速：每组配置先预热，再执行 64 visits 的 genmove；另比较 OpenCL FP16 自动、关闭和强制开启。\n");
+        worker.execute(() -> {
+            try {
+                closeSession();
+                engineReady = false;
+                File engine = nativeEngine();
+                File config = prepareAsset(CONFIG_ASSET, CONFIG_ASSET, true);
+                File model = prepareAsset(MODEL_ASSET, MODEL_FILE_NAME, false);
+                BenchmarkResult result = benchmarkConfigurations(engine, config, model);
+                if (result.best == null) {
+                    throw new IOException("所有测速组合都失败");
+                }
+                saveBestConfig(result.best);
+                append(String.format(Locale.US,
+                        "测速完成，最佳配置：搜索线程 %d，后端线程 %d，批大小 %d，%.2f visits/s。已保存，今后启动自动使用。\n",
+                        result.best.searchThreads, result.best.nnServerThreads, result.best.batchSize,
+                        result.best.visitsPerSecond));
+                runOnUiThread(() -> updateBestConfigStatus(result.best));
+                // Keep the button useful immediately: start a normal session
+                // with the configuration just selected by the benchmark.
+                startEngineOnWorker();
+            } catch (Exception error) {
+                append("测速失败: " + error + "\n");
+                runOnUiThread(() -> {
+                    benchmark.setEnabled(true);
+                    start.setEnabled(true);
+                });
+            }
+        });
+    }
+
+    private BenchmarkResult benchmarkConfigurations(File engine, File config, File model) {
+        BenchmarkConfig[] candidates = new BenchmarkConfig[]{
+                new BenchmarkConfig(1, 1, 1, "auto", 0.0),
+                new BenchmarkConfig(2, 1, 4, "auto", 0.0),
+                new BenchmarkConfig(4, 1, 4, "auto", 0.0),
+                new BenchmarkConfig(4, 2, 8, "auto", 0.0),
+                new BenchmarkConfig(8, 1, 8, "auto", 0.0),
+                new BenchmarkConfig(8, 2, 8, "auto", 0.0),
+                new BenchmarkConfig(8, 2, 4, "auto", 0.0),
+                new BenchmarkConfig(8, 3, 8, "auto", 0.0),
+                new BenchmarkConfig(8, 2, 8, "false", 0.0),
+                new BenchmarkConfig(8, 2, 8, "true", 0.0)
+        };
+        BenchmarkConfig best = null;
+        for (int i = 0; i < candidates.length; i++) {
+            BenchmarkConfig candidate = candidates[i];
+            try {
+                append(String.format(Locale.US, "测速 %d/%d：搜索线程 %d，后端线程 %d，批大小 %d...\n",
+                        i + 1, candidates.length, candidate.searchThreads,
+                        candidate.nnServerThreads, candidate.batchSize));
+                double visitsPerSecond = benchmarkOne(engine, config, model, candidate);
+                candidate.visitsPerSecond = visitsPerSecond;
+                append(String.format(Locale.US, "  FP16=%s，实际 %d visits，结果 %.2f visits/s%s\n",
+                        candidate.fp16Mode, candidate.rootVisits, visitsPerSecond,
+                        candidate.fp16Details == null ? "" : "；实际路径 " + candidate.fp16Details));
+                if (best == null || visitsPerSecond > best.visitsPerSecond) {
+                    best = candidate;
+                }
+            } catch (Exception error) {
+                append("  FP16=" + candidate.fp16Mode + " 该组合失败：" + error.getMessage() + "\n");
+            }
+        }
+        return new BenchmarkResult(best);
+    }
+
+    private double benchmarkOne(File engine, File config, File model, BenchmarkConfig candidate)
+            throws IOException, InterruptedException {
+        String override = candidate.toOverrideConfig()
+                + ",maxVisits=" + BENCHMARK_VISITS
+                + ",nnCacheSizePowerOfTwo=-1"
+                + ",maxTime=120,logToStderr=true,logSearchInfo=false,startupPrintMessageToStderr=false";
+        ProcessBuilder builder = new ProcessBuilder(engine.getAbsolutePath(), "gtp",
+                "-model", model.getAbsolutePath(), "-config", config.getAbsolutePath(),
+                "-override-config", override)
+                .directory(engine.getParentFile())
+                .redirectErrorStream(true);
+        File homeDirectory = new File(config.getParentFile(), "katago-home");
+        if (!homeDirectory.exists() && !homeDirectory.mkdirs()) {
+            throw new IOException("Cannot create KataGo home directory: " + homeDirectory);
+        }
+        builder.environment().put("HOME", homeDirectory.getAbsolutePath());
+        builder.environment().put("USERPROFILE", homeDirectory.getAbsolutePath());
+        Process process = builder.start();
+        try (BenchmarkProcess benchmarkProcess = new BenchmarkProcess(process)) {
+            sendBenchmarkCommand(benchmarkProcess, candidate, "protocol_version");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "name");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "version");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "boardsize 15");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "clear_board");
+            // Warm up on a different position. Using the same position for
+            // warm-up and measurement lets the NN cache answer the second
+            // search without running the model.
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play B A1");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play W C2");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play B A3");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play W C3");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "search_debug B");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "clear_board");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play B H8");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play W G7");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play B J8");
+            sendBenchmarkCommand(benchmarkProcess, candidate, "play W F7");
+            benchmarkProcess.lastRootVisits = -1L;
+            long started = System.nanoTime();
+            String response = sendBenchmarkCommand(benchmarkProcess, candidate, "search_debug B");
+            long elapsedNanos = System.nanoTime() - started;
+            if (response.startsWith("?")) {
+                throw new IOException(response);
+            }
+            if (benchmarkProcess.lastRootVisits <= 0) {
+                throw new IOException("search_debug 没有返回 Root visits");
+            }
+            candidate.rootVisits = benchmarkProcess.lastRootVisits;
+            double seconds = elapsedNanos / 1_000_000_000.0;
+            return benchmarkProcess.lastRootVisits / Math.max(seconds, 0.001);
+        }
+    }
+
+    private String sendBenchmarkCommand(BenchmarkProcess benchmarkProcess, BenchmarkConfig candidate,
+                                       String command) throws IOException, InterruptedException {
+        benchmarkProcess.writer.write(command);
+        benchmarkProcess.writer.newLine();
+        benchmarkProcess.writer.flush();
+        String response = null;
+        StringBuilder diagnostics = new StringBuilder();
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(90);
+        while (true) {
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                throw new IOException("GTP 命令超时（90 秒），已终止该测速组合");
+            }
+            String line = benchmarkProcess.lines.poll(remainingNanos, TimeUnit.NANOSECONDS);
+            if (line == null) {
+                throw new IOException("GTP 命令超时（90 秒），已终止该测速组合");
+            }
+            if (line.startsWith("=") || line.startsWith("?")) {
+                response = line;
+            } else if (line.equals("[benchmark-eof]")) {
+                throw new IOException(diagnostics.length() == 0
+                        ? "KataGo 进程提前退出" : diagnostics.toString());
+            } else if (line.contains("FP16Storage ")) {
+                candidate.fp16Details = line.substring(line.indexOf("FP16Storage ")).trim();
+                append("  引擎 FP16 实际状态：" + candidate.fp16Details + "\n");
+            } else if (line.startsWith("Root visits:")) {
+                String visits = line.substring("Root visits:".length()).trim();
+                try {
+                    benchmarkProcess.lastRootVisits = Long.parseLong(visits);
+                } catch (NumberFormatException ignored) {
+                    benchmarkProcess.lastRootVisits = -1L;
+                }
+            } else if (line.contains("ERROR") || line.contains("Error") || line.startsWith("[reader]")) {
+                if (diagnostics.length() < 800) {
+                    diagnostics.append(line).append(' ');
+                }
+            }
+            if (response != null && line.trim().isEmpty()) {
+                if (response.startsWith("?")) {
+                    throw new IOException(response + (diagnostics.length() == 0 ? "" : " " + diagnostics));
+                }
+                return response;
+            }
+        }
+    }
+
+    private void saveBestConfig(BenchmarkConfig config) throws IOException {
+        Properties properties = new Properties();
+        properties.setProperty("searchThreads", Integer.toString(config.searchThreads));
+        properties.setProperty("benchmarkVersion", Integer.toString(BENCHMARK_VERSION));
+        properties.setProperty("nnServerThreads", Integer.toString(config.nnServerThreads));
+        properties.setProperty("batchSize", Integer.toString(config.batchSize));
+        properties.setProperty("fp16Mode", config.fp16Mode);
+        properties.setProperty("visitsPerSecond", String.format(Locale.US, "%.6f", config.visitsPerSecond));
+        File target = getFileStreamPath(BEST_CONFIG_FILE_NAME);
+        File temporary = new File(target.getParentFile(), target.getName() + ".part");
+        try (FileOutputStream stream = new FileOutputStream(temporary)) {
+            properties.store(stream, "KataGo Android benchmark result");
+            stream.getFD().sync();
+        }
+        if (target.exists() && !target.delete()) {
+            throw new IOException("Cannot replace " + target);
+        }
+        if (!temporary.renameTo(target)) {
+            throw new IOException("Cannot save " + target);
+        }
+    }
+
+    private BenchmarkConfig loadBestConfig() {
+        File source = getFileStreamPath(BEST_CONFIG_FILE_NAME);
+        if (!source.isFile()) {
+            return null;
+        }
+        Properties properties = new Properties();
+        try (InputStream stream = new FileInputStream(source)) {
+            properties.load(stream);
+            if (Integer.parseInt(properties.getProperty("benchmarkVersion", "0")) != BENCHMARK_VERSION) {
+                return null;
+            }
+            int searchThreads = Integer.parseInt(properties.getProperty("searchThreads"));
+            int nnServerThreads = Integer.parseInt(properties.getProperty("nnServerThreads"));
+            int batchSize = Integer.parseInt(properties.getProperty("batchSize"));
+            String fp16Mode = properties.getProperty("fp16Mode", "auto");
+            double visitsPerSecond = Double.parseDouble(properties.getProperty("visitsPerSecond", "0"));
+            if (searchThreads < 1 || searchThreads > 64 || nnServerThreads < 1 || nnServerThreads > 8
+                    || batchSize < 1 || batchSize > 64
+                    || !(fp16Mode.equals("auto") || fp16Mode.equals("true") || fp16Mode.equals("false"))
+                    || !Double.isFinite(visitsPerSecond)) {
+                return null;
+            }
+            return new BenchmarkConfig(searchThreads, nnServerThreads, batchSize, fp16Mode, visitsPerSecond);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void updateBestConfigStatus(BenchmarkConfig config) {
+        if (config == null) {
+            benchmarkStatus.setText("尚未测速，将使用默认 OpenCL 配置");
+        } else {
+            benchmarkStatus.setText(String.format(Locale.US,
+                    "已保存：线程 %d / 后端 %d / 批 %d / FP16 %s，%.2f visits/s",
+                    config.searchThreads, config.nnServerThreads, config.batchSize,
+                    config.fp16Mode, config.visitsPerSecond));
+        }
     }
 
     private void sendCommand(String command) {
@@ -454,9 +731,14 @@ public class MainActivity extends Activity {
                 startupResponsePending = false;
                 if (--startupResponsesRemaining == 0) {
                     engineReady = true;
-                    append(String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程。\n",
-                            SEARCH_THREADS, NN_SERVER_THREADS));
+                    BenchmarkConfig running = activeConfig;
+                    append(running == null
+                            ? String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程。\n",
+                            SEARCH_THREADS, NN_SERVER_THREADS)
+                            : String.format(Locale.US, "引擎已就绪：%d 个搜索线程、%d 个神经网络后端线程、批大小 %d、FP16 %s。\n",
+                            running.searchThreads, running.nnServerThreads, running.batchSize, running.fp16Mode));
                     setEngineControls(true);
+                    runOnUiThread(() -> benchmark.setEnabled(true));
                 }
             }
         }
@@ -686,18 +968,98 @@ public class MainActivity extends Activity {
         }
     }
 
+    private static final class BenchmarkConfig {
+        final int searchThreads;
+        final int nnServerThreads;
+        final int batchSize;
+        final String fp16Mode;
+        String fp16Details;
+        long rootVisits;
+        double visitsPerSecond;
+
+        BenchmarkConfig(int searchThreads, int nnServerThreads, int batchSize, String fp16Mode,
+                        double visitsPerSecond) {
+            this.searchThreads = searchThreads;
+            this.nnServerThreads = nnServerThreads;
+            this.batchSize = batchSize;
+            this.fp16Mode = fp16Mode;
+            this.visitsPerSecond = visitsPerSecond;
+        }
+
+        String toOverrideConfig() {
+            return "numSearchThreads=" + searchThreads
+                    + ",numNNServerThreadsPerModel=" + nnServerThreads
+                    + ",nnMaxBatchSize=" + batchSize
+                    + ",openclUseFP16=" + fp16Mode;
+        }
+    }
+
+    private static final class BenchmarkResult {
+        final BenchmarkConfig best;
+
+        BenchmarkResult(BenchmarkConfig best) {
+            this.best = best;
+        }
+    }
+
+    private static final class BenchmarkProcess implements AutoCloseable {
+        final Process process;
+        final BufferedWriter writer;
+        final LinkedBlockingQueue<String> lines = new LinkedBlockingQueue<>();
+        volatile long lastRootVisits = -1L;
+
+        BenchmarkProcess(Process process) {
+            this.process = process;
+            writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
+            Thread reader = new Thread(() -> {
+                try (BufferedReader input = new BufferedReader(new InputStreamReader(
+                        process.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = input.readLine()) != null) {
+                        lines.put(line);
+                    }
+                } catch (Exception error) {
+                    lines.offer("[reader] " + error);
+                } finally {
+                    lines.offer("[benchmark-eof]");
+                }
+            }, "katago-benchmark-output");
+            reader.setDaemon(true);
+            reader.start();
+        }
+
+        @Override
+        public void close() {
+            try {
+                writer.close();
+            } catch (IOException ignored) {
+            }
+            process.destroy();
+            try {
+                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                }
+            } catch (InterruptedException error) {
+                process.destroyForcibly();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     private static final class KataGoSession {
         private final File engine;
         private final File config;
         private final File model;
+        private final String overrideConfig;
         private Process process;
         private BufferedWriter writer;
         private LineListener listener;
 
-        KataGoSession(File engine, File config, File model) {
+        KataGoSession(File engine, File config, File model, String overrideConfig) {
             this.engine = engine;
             this.config = config;
             this.model = model;
+            this.overrideConfig = overrideConfig;
         }
 
         void start(LineListener lineListener) throws IOException {
@@ -706,8 +1068,18 @@ public class MainActivity extends Activity {
             if (!homeDirectory.exists() && !homeDirectory.mkdirs()) {
                 throw new IOException("Cannot create KataGo home directory: " + homeDirectory);
             }
-            ProcessBuilder builder = new ProcessBuilder(engine.getAbsolutePath(), "gtp",
-                    "-model", model.getAbsolutePath(), "-config", config.getAbsolutePath())
+            List<String> command = new ArrayList<>();
+            command.add(engine.getAbsolutePath());
+            command.add("gtp");
+            command.add("-model");
+            command.add(model.getAbsolutePath());
+            command.add("-config");
+            command.add(config.getAbsolutePath());
+            if (overrideConfig != null && !overrideConfig.isEmpty()) {
+                command.add("-override-config");
+                command.add(overrideConfig);
+            }
+            ProcessBuilder builder = new ProcessBuilder(command)
                     .directory(engine.getParentFile())
                     .redirectErrorStream(true);
             // KataGo's OpenCL tuner stores its cache below $HOME/.katago.
