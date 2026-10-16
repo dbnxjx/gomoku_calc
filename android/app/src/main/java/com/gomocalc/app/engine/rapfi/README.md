@@ -1,76 +1,178 @@
 # Rapfi 原生引擎接入说明
 
 本目录是 Rapfi 引擎的全部接入代码，遵循主 README 的"目录边界"约定：所有 Rapfi 相关
-改动都收在 `engine/rapfi` 与 `src/main/cpp/rapfi`，未改动 domain/model/viewmodel/UI。
+改动都收在 `engine/rapfi`、`src/main/cpp/rapfi`、`src/main/assets/rapfi/`（NNUE 权重包）
+与 `src/main/assets/rapfi_database_panel.js`（注入面板），未改动 domain/model/viewmodel/UI
+与打包网页资源。
 
 ## 分层
 
 | 层 | 类 | 职责 |
 | --- | --- | --- |
 | 原生传输 | `RapfiJni` + `cpp/rapfi/jni` | 加载 `librapfi_jni.so`，命令/行输出管道 |
-| 原生引擎层 | `JniRapfiNativeBridge` + `RapfiAnalyzer` | 把 `AnalysisRequest` 转成命令流，把 stdout 合并成 `EngineEvent` |
-| 适配器 | `engine/RapfiEngineAdapter` | 注入 bridge，实现 `GomokuEngine`（无参构造已接真 bridge） |
-| Web UI 插件 | `NativeRapfiPlugin` | Capacitor 插件，向打包页面透传 `initialize/sendCommand/stop` 与 stdout 事件 |
+| 资源包 | `RapfiAssets` | 首次运行把 APK 内的 NNUE 权重解到 `filesDir/rapfi` 并改写为绝对路径 |
+| 原生引擎层 | `JniRapfiNativeBridge` + `RapfiAnalyzer` | `AnalysisRequest` → 命令流，stdout → `EngineEvent` |
+| 适配器 | `engine/RapfiEngineAdapter` | 注入 bridge，实现 `GomokuEngine` |
+| Web UI 插件 | `NativeRapfiPlugin` | 命令透传 + 引擎初始化 + 数据库管理 + 注入设置面板 |
+| 设置面板 | `assets/rapfi_database_panel.js` | 运行时注入的数据库设置 + 引擎状态界面 |
 
-## 跨会话分析结果保存（Yixinboard 数据库）
+---
 
-Rapfi 内置了 Yixinboard 兼容的分析数据库（`database/yixindb`），会在搜索时自动读取已
-分析过的局面、并写入新的分析结论，实现**跨会话保留**。本项目复用它，不重新实现格式。
+## 一、NNUE 评估（棋力）
 
-实现要点：
+引擎默认走 **mix9svq NNUE**，权重随 APK 打包，无需联网。
 
-1. **引擎侧配置**：`cpp/rapfi/Rapfi/internalConfig.cpp` 的编译内置配置中新增了
-   `[database]` 段（`type = "yixindb"`、`enable_by_default = false`，以及
-   `[database.search]` 的读写阈值）。`enable_by_default = false` 保证引擎不会在 App
-   给出真实路径前，去打开一个相对路径的 `rapfi.db`。
-2. **运行期启用**：`RapfiJni.start()` 在加载引擎后，会向引擎发送
-   `YXSETDATABASE <绝对路径>`。路径由 App 层提供（`NativeRapfiPlugin` 用
-   `getFilesDir()/rapfi.db`，App 私有目录，无需存储权限）。
-3. **落盘（flush）**：`NativeRapfiPlugin` 在每次搜索结束（收到 `x,y` 最佳着法）后延迟
-   发送 `YXSAVEDATABASE`。引擎内部有 dirty 判断，没有新记录时是**零开销空操作**，
-   有新记录时才写文件并打印 `DATABASE SAVE START/DONE`。
-4. **UI 展现**：引擎会输出 `MESSAGE Opening yixin database at ...`、
-   `MESSAGE Loaded Yixin database (N records) using ...`、`DATABASE SAVE DONE` 等行，
-   这些会原样转发到页面，显示在**右上角的引擎消息抽屉里**。此外插件在每次开始分析时
-   额外发出 `status` 事件 `Rapfi database: N positions cached (cross-session)`，
-   保证"缓存了多少局面"在每次分析时都可见（页面每次 `think` 会清空旧消息）。
+- **权重来源**：`rapfi-config/`（来自 <https://github.com/dhbloo/rapfi-networks>，CC0）。
+- **打包内容**：`src/main/assets/rapfi/`
 
-### 可选的读写开关
+  | 文件 | 大小 | 说明 |
+  | --- | --- | --- |
+  | `config.toml` | 7 KB | `type = "mix9svq"` + `binary_file` + 数据库段 |
+  | `model210901.bin` | 30 KB | 经典评估模型 |
+  | `mix9svqfreestyle_bsmix.bin.lz4` | 10 MB | 无禁手 |
+  | `mix9svqstandard_bs15.bin.lz4` | 10 MB | 无禁长连 |
+  | `mix9svqrenju_bs15_black/white.bin.lz4` | 各 10 MB | 连珠黑/白 |
 
-数据库默认读写都开。迁移到将来 UI 提交时可用的插件方法：
+  共约 39 MB。`app/build.gradle` 对 `lz4`/`bin` 设了
+  `androidResources { noCompress += [...] }`（**必须用这个 AGP 8 的写法**，旧的
+  `aaptOptions.noCompress` 可能不生效），避免 AAPT 二次压缩导致读取截断。
 
-| 方法 | 作用 | 对应引擎命令 |
+- **首次运行**：`RapfiAssets.ensureExtracted()` 按**显式清单**逐个拷贝到 `filesDir/rapfi/`，
+  校验大小（权重 < 5 MB 判为截断），然后把 `config.toml` 里的 `weight_file*` / `binary_file`
+  **改写成绝对路径**再交给引擎。用 `.extracted` 标记版本（当前 `mix9svq-3`）。
+- **兜底**：资源缺失/截断时回退到内置经典评估（`internalConfig.cpp`），引擎仍可用，并在
+  消息里说明原因。
+- **异步**：解包 + 加载耗时较长，`initialize` 在后台线程执行，完成后才 resolve Promise。
+
+> **坐标模式（重要）**：配置使用 `coord_conversion_mode = "X_flipY"`。这是 gomoku-calculator
+> 官方配置的取值（其 `gomocalc-*.toml` 全部如此），因为网页棋盘 y 轴向下、Rapfi 内部 y 轴
+> 向上。用错模式会把局面上下镜像；经典评估近似对称所以不明显，但 **NNUE 方向敏感，用错会
+> 明显掉棋力**。
+
+### 排查：`failed to load nnue weight from xxx.bin.lz4`
+
+关键看**路径是相对还是绝对**：
+
+- **相对路径**（如 `from mix9svqfreestyle_bsmix.bin.lz4`）⇒ 引擎在配置目录里**没找到文件**
+  （`getModelFullPath()` 找不到时会原样返回相对路径）。权重没解出来或被截断。
+- **绝对路径** ⇒ 文件在但读不了/内容坏。
+
+现在配置已被改写成绝对路径，所以报错里必然带绝对路径，可直接区分。处理步骤：
+
+```bash
+# APK 里有没有权重、是否被压缩（Method 应为 Stored）
+unzip -v app/build/outputs/apk/debug/app-debug.apk | grep rapfi
+# 解包到设备后的实际大小
+adb shell run-as com.gomocalc.app ls -l files/rapfi/
+# 解包日志
+adb logcat -s RapfiAssets
+```
+
+App 内也可以点右下角 `DB` 按钮 →「引擎评估 / Engine」区块查看每个权重的实际大小。
+
+> `Evaluator set to mix9svq.` 只表示**配置解析成功**；真正的成功标志是
+> `mix9svq nnue: weight loaded in ~90ms`，并且**没有** `Evaluator mix9svq disabled`。
+
+---
+
+## 二、跨会话分析结果保存
+
+Rapfi 内置 Yixinboard 兼容的分析数据库（`yixindb`）：搜索时自动读取已分析过的局面、
+写入新的分析结论，跨会话保留。本项目复用它，不重新实现存储格式。
+
+1. **配置**：`config.toml`（NNUE）与 `internalConfig.cpp`（经典）里都有
+   `[database] type = "yixindb"`、`enable_by_default = false`。
+2. **运行期启用**：`RapfiJni.start()` 后发 `YXSETDATABASE <绝对路径>`，默认
+   `filesDir/databases/default.db`（App 私有目录，无需权限）。
+3. **落盘**：每次搜索结束（收到 `x,y`）后延迟 300ms 发 `YXSAVEDATABASE`；引擎内部有 dirty
+   判断，无新记录时是零开销空操作。
+4. **UI 展现**：`Loaded Yixin database (N records)`、`DATABASE SAVE DONE` 会转发到页面消息
+   抽屉；开始分析时插件额外发 `status`：
+   `Rapfi database [default]: N positions cached (cross-session)`。
+
+---
+
+## 三、保存限制（不是每一步都入库）
+
+只存"搜得够深"的结果、不存"没算清的必杀"。参考 `config_classical.toml` 的
+`[database.search]`，两份配置都取下列值：
+
+| 参数 | 值 | 含义 |
 | --- | --- | --- |
-| `setDatabaseEnabled({ enabled })` | 整体启用/停用数据库 | `INFO USEDATABASE 1/0` |
-| `setDatabaseReadOnly({ readOnly })` | 只读：仍读缓存、不再写入 | `INFO DATABASE_READONLY 1/0` |
-| `getDatabaseStatus()` | 返回 `{configured, path, recordCount}` | 仅读取插件侧状态 |
+| `pv_write_ply` | 0 | 主要分支只在根线路写 |
+| `pv_write_min_depth` | 10 | 主要分支最低写入深度 10 |
+| `min_write_depth` | 10 | **任意记录（含根节点）的绝对最低深度** |
+| `write_value_range` | 800 | 分数超出该范围不写 |
+| `mate_write_ply` | 2 | 必胜必败分支写入层数 |
+| `mate_write_min_depth_exact` | 10 | 已算清（准确步数）必杀最低深度 |
+| `mate_write_min_depth_nonexact` | 100 | 未算清必杀最低深度；取很大值 = **不写入这类记录** |
+| `mate_write_min_step` | 2 | 少于 2 步的必胜必败不记录 |
+| `overwrite_rule` | `better_value_depth_bound` | 覆盖策略 |
 
-> 当前打包页面（v0.31.0 构建）没有数据库设置项，因此这些方法暂未被页面调用；
-> 它们是给后续"UI 提交"用的接口（引擎/UI 提交分离，便于独立合并）。
+> **为什么新增 `min_write_depth`？** Rapfi 原版**根节点会绕过** `pv_write_min_depth`
+> 等分支门槛（`writeDatabaseRecord` 里的 `RootNode ||`），一次浅搜索也会把根局面的低质量
+> 结果写库。新增的 `min_write_depth` 在写库入口对**所有**记录（含根节点）生效；
+> 默认值 0 表示保持原版行为。
+> 涉及文件：`database/dbconfig.h`、`search/searchengine.{h,cpp}`、`config.cpp`、
+> `search/ab/search.cpp`。升级 Rapfi 源码时需重新套用这几处。
 
-## 修改边界
+**实测**：浅搜索（深度 8）→ `(0 records)`；深搜索（深度 17）→ 写入；只读模式 → `(0 records)`。
 
-本接入只动这些：
+---
 
-- `engine/rapfi/**`（含本文件、JNI/解析/插件）
-- `engine/RapfiEngineAdapter.java`（无参构造接入真 bridge）
-- `src/main/cpp/**`（CMake + Rapfi 源码 + bridge + JNI）
-- `src/main/cpp/rapfi/Rapfi/internalConfig.cpp`（新增 `[database]` 段）
-- `app/build.gradle`（新增 `externalNativeBuild.cmake` 段）
+## 四、数据库设置（UI）
+
+`NativeRapfiPlugin.initialize()` 读取 `assets/rapfi_database_panel.js` 注入 WebView。
+面板挂在 `document.body`（Vue 根节点之外）并带独立 id 前缀，**不修改任何打包网页资源**。
+
+面板提供：**使用方式**（使用 / 只读 / 不使用）、**切换数据库**（下拉 + 切换/删除）、
+**新建数据库**（命名后自动切过去）、以及**引擎评估状态**（评估器、是否启用 NNUE、config 路径、
+每个权重文件的实际大小）。
+
+### 插件方法
+
+| 方法 | 参数 | 返回 |
+| --- | --- | --- |
+| `listDatabases()` | — | `{mode, current, name, path, recordCount, databases[]}` |
+| `createDatabase({name})` | 名称（不含 `.db`） | 同上 |
+| `switchDatabase({name})` | 名称 | 同上 |
+| `deleteDatabase({name})` | 名称（默认库不可删） | 同上 |
+| `setDatabaseMode({mode})` | `on` \| `readonly` \| `off` | 同上 |
+| `getDatabaseStatus()` | — | 同上 |
+| `getEngineStatus()` | — | `{evaluator, nnue, configPath, assets[]}` |
+
+模式 → 引擎命令：`on` → `INFO DATABASE_READONLY 0` + `INFO USEDATABASE 1`；
+`readonly` → `INFO DATABASE_READONLY 1` + `INFO USEDATABASE 1`；`off` → `INFO USEDATABASE 0`。
+库名与模式用 SharedPreferences 持久化。库文件在 `filesDir/databases/<name>.db`。
+
+> 引擎在搜索过程中会忽略数据库命令，所以建库/切换/改模式都经 `runWhenIdle()`
+> 延到搜索结束后执行。
+
+---
+
+## 五、修改边界
+
+本模块只动这些：
+
+- `src/main/assets/rapfi/**`（NNUE 权重包）
+- `src/main/assets/rapfi_database_panel.js`（注入面板）
+- `engine/rapfi/**`（`RapfiAssets`、`RapfiJni`、`RapfiProtocol`、`NativeRapfiPlugin`、
+  `JniRapfiNativeBridge`、本文档）
+- `src/main/cpp/rapfi/Rapfi/` 6 个引擎文件（`[database]` 配置 + `min_write_depth`）
+- `app/build.gradle`（`externalNativeBuild.cmake` + `androidResources.noCompress`）
 - `app/src/main/assets/capacitor.plugins.json`（注册 `NativeRapfi`）
+- `engine/RapfiEngineAdapter.java`（无参构造接入真 bridge）
 
 未改动：`domain/`、`model/`、`viewmodel/`、`data/`、`MainActivity`、`capacitor*.gradle`、
-`capacitor-android`、`capacitor-filesystem`、`assets/public/**`、以及 KataGo 相关文件。
+`capacitor-android`、`capacitor-filesystem`、`assets/public/**`、KataGo 相关文件。
 
-## 注意事项
+## 六、注意事项
 
-1. **引擎配置**：`RapfiJni.start(null)` 使用 Rapfi 内置的经典评估（自包含、无需 NNUE
-   权重）。需要 NNUE 时，把 `config.toml` + 权重放入 assets/自有目录，并把路径传给
-   `start(configPath)`；同时该 config 也需要带 `[database]` 段。
-2. **插件注册**：`capacitor.plugins.json` 是手工登记的。若日后在 Web 源码里重跑
-   `cap sync`，需保证它重新生成后仍包含 `native-rapfi -> NativeRapfiPlugin` 这条映射，
-   否则页面会报 `NativeRapfi` 插件不存在。
-3. **坐标/视角**：Rapfi 输出的是"行棋方视角"，`RapfiAnalyzer` 已转成黑方视角再写入
-   `AnalysisState`；棋盘坐标统一为左上角零基 `x/y`。
-4. **数据库文件**：位于 `getFilesDir()/rapfi.db`（可另有一个 `rapfi_bak1.db` 备份）。
-   卸载 App 会一并清除；需要用户可见/可导出的位置时可改用 `getExternalFilesDir()`。
+1. **APK 体积**：NNUE 权重约 39 MB，APK 会相应变大。若需精简，可只保留用到的规则权重
+   并同步删掉 `config.toml` 里对应的 `[[model.evaluator.weights]]` 条目
+   （**记得同步改 `RapfiAssets.EXPECTED` 清单**）。
+2. **插件注册**：`capacitor.plugins.json` 是手工登记的；日后重跑 `cap sync` 要保证仍包含
+   `native-rapfi -> NativeRapfiPlugin`。
+3. **视角**：`RapfiAnalyzer` 已把引擎输出转成"黑方视角"写入 `AnalysisState`；坐标为零基
+   `x/y`，左上角原点、y 向下（与网页一致）。
+4. **后续可做**：拿到 Web 源码后可把注入面板换成 `Settings.vue` 的正式区块（原生层不用改）。

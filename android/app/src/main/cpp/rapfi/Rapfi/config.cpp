@@ -580,6 +580,7 @@ void Config::readDatabase(const cpptoml::table &t, PendingConfig &pending)
             s->get_as<int>("nonpv_write_min_depth").value_or(dbs.nonPVWriteMinDepth);
 
         dbs.writeValueRange = s->get_as<int>("write_value_range").value_or(dbs.writeValueRange);
+        dbs.minWriteDepth   = s->get_as<int>("min_write_depth").value_or(dbs.minWriteDepth);
 
         dbs.mateWritePly = s->get_as<int>("mate_write_ply").value_or(dbs.mateWritePly);
         dbs.mateWriteMinDepthExact =

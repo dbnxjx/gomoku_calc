@@ -21,7 +21,7 @@ public final class RapfiProtocol {
     public static final String YXBALANCETWO = "YXBALANCETWO";
 
     // ---- Yixinboard-compatible analysis database (cross-session cache) ----
-    /** Open/replace the database at the following absolute path (rest of the line). */
+    /** Open/switch to the database at the following absolute path (rest of the line). */
     public static final String YXSETDATABASE = "YXSETDATABASE";
     /** Flush in-memory records to the database file (no-op when nothing changed). */
     public static final String YXSAVEDATABASE = "YXSAVEDATABASE";

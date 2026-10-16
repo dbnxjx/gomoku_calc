@@ -692,6 +692,8 @@ void writeDatabaseRecord(Board              &board,
 
     if (thisThread->dbClient
         && !dbParams.readonlyMode             // Never write in database readonly mode
+        && (dbParams.minWriteDepth <= 0       // Absolute depth floor (also covers the root
+            || depth >= dbParams.minWriteDepth)  //  node, which bypasses the gates below)
         && !options.balanceMode               // Never write when we are doing balanced search
         && (!skipMove || ss->dbChildWritten)  // Never write when in singular extension
         && ss->numNullMoves == 0              // Never write when in null move search

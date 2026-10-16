@@ -14,7 +14,7 @@ android {
             cmake {
                 cppFlags '-std=c++17'
                 // Rapfi native engine ABIs (arm64-v8a is the primary phone target).
-                abiFilters 'arm64-v8a', 'x86_64'
+                abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
             }
         }
         aaptOptions {
@@ -28,6 +28,13 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+
+    // Rapfi NNUE weights ship already LZ4-compressed. Store them uncompressed in the APK so
+    // extraction from assets/ is a byte-exact copy instead of a deflate round-trip (compressed
+    // assets can be read back truncated, which silently breaks NNUE loading).
+    androidResources {
+        noCompress += ['lz4', 'bin']
     }
 
     // Rapfi native engine (librapfi_jni.so). CMake sources live in src/main/cpp/rapfi/.

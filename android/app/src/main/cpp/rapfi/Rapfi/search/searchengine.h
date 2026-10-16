@@ -65,6 +65,7 @@ struct DatabaseSearchParams
     int  pvWriteMinDepth;                // DatabaseCfg.search.pvWriteMinDepth
     int  nonPVWritePly;                  // DatabaseCfg.search.nonPVWritePly
     int  nonPVWriteMinDepth;             // DatabaseCfg.search.nonPVWriteMinDepth
+    int  minWriteDepth;                  // DatabaseCfg.search.minWriteDepth
     int  writeValueRange;                // DatabaseCfg.search.writeValueRange
     int  exactOverwritePly;              // DatabaseCfg.search.exactOverwritePly
     int  nonExactOverwritePly;           // DatabaseCfg.search.nonExactOverwritePly
