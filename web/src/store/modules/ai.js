@@ -334,7 +334,10 @@ const actions = {
     let position = rootState.position.position
 
     let command = immediateThink ? 'BOARD' : 'YXBOARD'
-    let side = position.length % 2 == 0 ? 1 : 2
+    // The position array is always stored in move order, starting with Black.
+    // An odd number of stones means White is next; it must not change the
+    // color of the first stone in the submitted position.
+    let side = 1
     for (let pos of position) {
       command += ' ' + pos[0] + ',' + pos[1] + ',' + side
       side = 3 - side

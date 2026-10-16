@@ -406,7 +406,6 @@ public final class NativeKataGoPlugin extends Plugin {
         Double rate = parseNumber(winrate);
         if (rate != null) {
             output.add("INFO WINRATE " + String.format(Locale.US, "%.6f", rate));
-            output.add("INFO BLACK_WINRATE " + String.format(Locale.US, "%.6f", rate));
         }
         StringBuilder out = new StringBuilder("INFO BESTLINE ");
         for (int i = 0; i < pv.size(); i++) {
