@@ -1,15 +1,15 @@
 package com.gomocalc.app.engine.katago;
 
-/**
- * Names for the future KataGo transport.  The adapter should normalize KataGo data to
- * AnalysisState (black-perspective win rate, visits, heatmap, and forbidden points) before
- * publishing EngineEvent objects.
- */
+/** Protocol conversion constants shared by the Android KataGo transport. */
 public final class KataGoProtocol {
-    public static final String ANALYSIS_REQUEST = "analysisRequest";
-    public static final String MOVE = "move";
-    public static final String VISITS = "visits";
-    public static final String WINRATE = "winrate";
+    public static final String YXBOARD = "YXBOARD";
+    public static final String YXNBEST = "YXNBEST";
+    public static final String START = "START";
+    public static final String STOP = "stop";
+    public static final String YXSTOP = "YXSTOP";
+    public static final String PLAY = "PLAY";
+    public static final String UNDO = "UNDO";
+    public static final String SET_POSITION = "SET_POSITION";
 
     private KataGoProtocol() { }
 }

@@ -23,6 +23,15 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    androidResources {
+        noCompress += ["gz"]
+    }
+    packaging {
+        jniLibs {
+            // KataGo is an executable ELF stored in the native library directory.
+            useLegacyPackaging = true
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false

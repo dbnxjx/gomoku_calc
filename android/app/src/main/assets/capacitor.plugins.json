@@ -6,5 +6,9 @@
 	{
 		"pkg": "native-rapfi",
 		"classpath": "com.gomocalc.app.engine.rapfi.NativeRapfiPlugin"
+	},
+	{
+		"pkg": "native-katago",
+		"classpath": "com.gomocalc.app.engine.katago.NativeKataGoPlugin"
 	}
 ]

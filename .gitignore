@@ -1,1 +1,199 @@
-weights/*.bin.gz
+# =========================================================
+# 操作系统
+# =========================================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# =========================================================
+# IDE / 编辑器
+# =========================================================
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# =========================================================
+# Java / Android / Gradle
+# =========================================================
+.gradle/
+build/
+out/
+bin/
+gen/
+captures/
+local.properties
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.hprof
+*.jks
+*.keystore
+*.p12
+*.key
+*.pem
+
+# Android 子项目
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/app/.externalNativeBuild/
+android/.idea/
+android/.kotlin/
+androidkatago/.gradle/
+androidkatago/build/
+androidkatago/app/build/
+androidkatago/.idea/
+androidkatago/.kotlin/
+rapfi-android-engine/.gradle/
+rapfi-android-engine/build/
+rapfi-android-engine/app/build/
+rapfi-android-engine/.idea/
+rapfi-android-engine/.kotlin/
+
+# Android 中的 Web 构建产物（源码在 web/，构建后会自动生成）
+android/app/src/main/assets/public/js/
+android/app/src/main/assets/public/css/
+android/app/src/main/assets/public/fonts/
+android/app/src/main/assets/public/lib/
+android/app/src/main/assets/public/img/
+android/app/src/main/assets/public/index.html
+android/app/src/main/assets/public/service-worker.js
+android/app/src/main/assets/public/precache-manifest.*.js
+android/app/src/main/assets/public/manifest.json
+android/app/src/main/assets/public/robots.txt
+
+# =========================================================
+# 自定义构建目录 / Gradle 缓存
+# =========================================================
+build-android-*/
+build-windows-*/
+build-cache*/
+gradle-project-cache*/
+gradle-temp-cache*/
+# 注意：benchmark-eigen-3.4.0 是源码依赖，不要忽略
+
+# =========================================================
+# Node / Vue / Webpack / Capacitor
+# =========================================================
+node_modules/
+web/node_modules/
+dist/
+web/dist/
+.cache/
+web/.cache/
+.parcel-cache/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+.yarn/
+
+# =========================================================
+# C / C++ / CMake 构建中间文件
+# =========================================================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.dylib
+*.exe
+*.out
+*.app
+*.pdb
+*.idb
+*.ilk
+*.exp
+
+# =========================================================
+# JNI / 动态库（编译产物，不应提交）
+# =========================================================
+*.so
+*.so.*
+**/jniLibs/
+
+# =========================================================
+# 日志 / 临时文件
+# =========================================================
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.pid
+*.seed
+*.pid.lock
+
+# =========================================================
+# 环境变量 / 密钥
+# =========================================================
+.env
+.env.local
+.env.*.local
+*.env
+secrets.properties
+
+# =========================================================
+# 模型文件（大文件，绝不提交）
+# =========================================================
+# 通用后缀
+*.model
+*.bin
+*.onnx
+*.bin.gz
+*.params
+*.pt
+*.pth
+*.h5
+*.tflite
+*.pb
+
+# KataGo 模型目录
+weights/
+android/app/src/main/assets/katago/*.bin
+android/app/src/main/assets/katago/*.model
+android/app/src/main/assets/katago/*.onnx
+android/app/src/main/assets/katago/*.bin.gz
+androidkatago/app/src/main/assets/*.bin
+androidkatago/app/src/main/assets/*.model
+androidkatago/app/src/main/assets/*.onnx
+androidkatago/app/src/main/assets/*.bin.gz
+KATAGOMO26/
+
+# =========================================================
+# 压缩包
+# =========================================================
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# =========================================================
+# 其他
+# =========================================================
+adb-home/
+KataGomo_fork-Gomoku_20250206/.vscode/
