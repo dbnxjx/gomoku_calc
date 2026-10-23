@@ -1,21 +1,33 @@
 package com.gomocalc.app.engine.rapfi;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.OpenableColumns;
 import android.webkit.WebView;
+
+import androidx.activity.result.ActivityResult;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,20 +45,17 @@ import java.util.regex.Pattern;
  *   addListener("stdout", cb) / "stderr" / "status" / "exit"
  * </pre>
  *
- * <p>Raw engine stdout lines are published as {@code { output: line }} events, which the page's
- * Rapfi parser consumes unchanged.</p>
- *
- * <p><b>NNUE.</b> On initialize the bundled weights are extracted from {@code assets/rapfi/} into
- * {@code filesDir/rapfi/} (see {@link RapfiAssets}) and the engine is started with that config, so
- * the stronger mix9svq NNUE evaluator is used instead of the built-in classical one.</p>
+ * <p><b>Engine weights (NNUE / classical).</b> The page already has an "引擎权重" selector whose
+ * options map to {@code config.toml}, {@code classical220723.toml} and
+ * {@code classical210901.toml}. The page asks for them with {@code RELOADCONFIG <name>}; this
+ * plugin answers that command itself and maps the name onto the bundled, extracted (absolute-path)
+ * config. The selected weight is persisted, so it survives restarts.</p>
  *
  * <p><b>Cross-session analysis persistence.</b> The engine is compiled with Rapfi's
  * Yixinboard-compatible database. The plugin points it at an app-private file
- * ({@code filesDir/databases/&lt;name&gt;.db}) via {@code YXSETDATABASE}; the engine reads
- * previously analyzed positions on startup and writes new ones during search (only records deep
- * enough, see the engine's {@code [database.search]} restrictions). It flushes after every
- * completed search and reports the cached record count as a {@code status} event. Mode and
- * current database are persisted in SharedPreferences.</p>
+ * ({@code filesDir/databases/&lt;name&gt;.db}) via {@code YXSETDATABASE} and flushes after every
+ * completed search. Databases can be listed, created, switched, deleted and imported/exported
+ * through the system file picker.</p>
  */
 @CapacitorPlugin(name = "NativeRapfi")
 public class NativeRapfiPlugin extends Plugin {
@@ -55,6 +64,8 @@ public class NativeRapfiPlugin extends Plugin {
     private static final Pattern BEST_MOVE = Pattern.compile("^\\d+,\\d+( \\d+,\\d+)?$");
     /** Engine message emitted after the evaluator is selected, e.g. "Evaluator set to mix9svq.". */
     private static final Pattern EVALUATOR_SET = Pattern.compile("Evaluator set to (\\S+)\\.");
+    /** Engine command the page uses to pick a weight config. */
+    private static final String CMD_RELOADCONFIG = "RELOADCONFIG";
     /** Delay before flushing, so the engine has left its "thinking" state. */
     private static final long FLUSH_DELAY_MS = 300L;
     /** Retry budget for deferring database commands until the engine is idle. */
@@ -65,12 +76,13 @@ public class NativeRapfiPlugin extends Plugin {
     private static final String DATABASE_EXT = ".db";
     private static final String DEFAULT_DATABASE = "default";
 
-    /** Asset holding the injected database settings panel. */
-    private static final String SCRIPT_DATABASE_PANEL = "rapfi_database_panel.js";
+    /** Asset holding the injected settings card. */
+    private static final String SCRIPT_SETTINGS = "rapfi_database_panel.js";
 
     private static final String PREFS = "rapfi_database";
     private static final String PREF_NAME = "current";
     private static final String PREF_MODE = "mode";
+    private static final String PREF_WEIGHT = "weight";
 
     /** Database usage modes exposed to the UI. */
     public static final String MODE_ON = "on";              // 使用数据库（读 + 写）
@@ -89,6 +101,10 @@ public class NativeRapfiPlugin extends Plugin {
     private volatile String evaluatorName = "classical";
     private volatile String currentDatabase = DEFAULT_DATABASE;
     private volatile String databaseMode = MODE_ON;
+    /** Selected weight config file name (one of {@link RapfiAssets#CONFIG_FILES}). */
+    private volatile String weightName = RapfiAssets.CONFIG_NNUE;
+    /** Whether the bundled NNUE weights are available at all. */
+    private volatile boolean nnueAvailable;
     /** Whether the engine currently has a database storage attached. */
     private volatile boolean databaseAttached;
 
@@ -124,8 +140,8 @@ public class NativeRapfiPlugin extends Plugin {
             call.reject("Native Rapfi .so is unavailable for this ABI");
             return;
         }
-        // Extracting the bundled NNUE weights (~40 MB) and loading them is slow, so keep it off
-        // the WebView bridge thread and resolve the call when the engine is ready.
+        // Extracting the bundled weights (~40 MB) and loading them is slow, so keep it off the
+        // WebView bridge thread and resolve the call when the engine is ready.
         new Thread(() -> initializeBlocking(call), "rapfi-init").start();
     }
 
@@ -136,25 +152,34 @@ public class NativeRapfiPlugin extends Plugin {
                 SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
                 currentDatabase = prefs.getString(PREF_NAME, DEFAULT_DATABASE);
                 databaseMode = prefs.getString(PREF_MODE, MODE_ON);
+                weightName = prefs.getString(PREF_WEIGHT, RapfiAssets.CONFIG_NNUE);
 
-                // Bundled NNUE weights + config; incomplete bundle falls back to classical eval.
+                // The engine does not create the database directory itself, so a missing
+                // "databases/" folder makes it log "Failed to open YXDB file".
+                ensureDatabaseDirectory();
+
                 RapfiAssets.Result assetResult = RapfiAssets.ensureExtracted(context);
                 emitStatusLines(assetResult.log);
-                RapfiJni.configureConfig(assetResult.configPath);
+                nnueAvailable = assetResult.configPath != null;
+                if (!nnueAvailable)
+                    weightName = null;   // no bundle: keep the engine's built-in classical config
+                RapfiJni.configureConfig(nnueAvailable
+                        ? RapfiAssets.configPath(context, weightName) : null);
                 RapfiJni.configureDatabase(databaseFile(currentDatabase).getAbsolutePath());
 
-                engine.start(null);   // loads the NNUE config and opens the database
+                engine.start(null);   // loads the selected weight config and opens the database
                 databaseAttached = RapfiJni.isDatabaseConfigured();
                 initialized = true;
                 applyMode();
-                mainHandler.post(this::injectDatabasePanel);
+                mainHandler.post(this::injectSettingsCard);
             }
             mainHandler.post(() -> {
                 notifyListeners("status", new JSObject().put("value", "ready"));
                 JSObject result = new JSObject();
                 result.put("engineType", "RAPFI");
                 result.put("evaluator", evaluatorName);
-                result.put("nnue", RapfiJni.isNnueConfigured());
+                result.put("weight", weightName == null ? "" : weightName);
+                result.put("nnue", RapfiAssets.CONFIG_NNUE.equals(weightName));
                 call.resolve(result);
             });
         } catch (Exception error) {
@@ -171,6 +196,14 @@ public class NativeRapfiPlugin extends Plugin {
             return;
         }
         try {
+            // The page's "引擎权重" selector asks for "config.toml" / "classical*.toml" by name.
+            // Those live in the app's private directory, so answer the request here with the
+            // extracted config instead of forwarding a name the engine cannot resolve.
+            if (command.regionMatches(true, 0, CMD_RELOADCONFIG, 0, CMD_RELOADCONFIG.length())) {
+                applyWeight(command.substring(CMD_RELOADCONFIG.length()).trim());
+                call.resolve();
+                return;
+            }
             if (isSearchCommand(command))
                 reportDatabaseStatus();
             engine.sendCommand(command);
@@ -222,13 +255,10 @@ public class NativeRapfiPlugin extends Plugin {
         }
         runWhenIdle(() -> {
             try {
-                File file = databaseFile(name);
-                File dir = file.getParentFile();
-                if (dir != null && !dir.exists() && !dir.mkdirs())
-                    throw new IllegalStateException("Cannot create database directory");
+                ensureDatabaseDirectory();
                 currentDatabase = name;
                 dbRecordCount = 0;          // freshly created databases start empty
-                engine.openDatabase(file.getAbsolutePath());
+                engine.openDatabase(databaseFile(name).getAbsolutePath());
                 databaseAttached = true;
                 engine.saveDatabase();      // materialise the empty file right away
                 persistPreferences();
@@ -257,7 +287,7 @@ public class NativeRapfiPlugin extends Plugin {
         });
     }
 
-    /** Delete an analysis database file. The current one falls back to the default. */
+    /** Delete an analysis database (and its backups). */
     @PluginMethod
     public void deleteDatabase(PluginCall call) {
         String name = sanitizeName(call.getString("name"));
@@ -265,18 +295,44 @@ public class NativeRapfiPlugin extends Plugin {
             call.reject("Invalid database name");
             return;
         }
-        if (DEFAULT_DATABASE.equals(name)) {
-            call.reject("默认数据库不可删除");
-            return;
-        }
         runWhenIdle(() -> {
             try {
-                File file = databaseFile(name);
-                if (file.exists() && !file.delete())
-                    throw new IllegalStateException("Unable to delete database file");
-                if (name.equals(currentDatabase))
-                    switchDatabaseInternal(DEFAULT_DATABASE);
-                call.resolve(databaseStatusObject());
+                boolean wasCurrent = name.equals(currentDatabase);
+                boolean reset = false;
+
+                // The engine's flush() re-creates the file when it is missing, and switching
+                // away flushes the outgoing database. So move off (or detach) FIRST, then delete
+                // the file(s) - otherwise the just-deleted file comes straight back.
+                if (wasCurrent) {
+                    String fallback = null;
+                    for (String candidate : listDatabaseNames()) {
+                        if (!candidate.equals(name)) { fallback = candidate; break; }
+                    }
+                    if (fallback != null) {
+                        switchDatabaseInternal(fallback);
+                    } else {
+                        engine.setDatabaseEnabled(false);   // detach: flushes before deletion
+                        databaseAttached = false;
+                        currentDatabase = DEFAULT_DATABASE;
+                        reset = true;
+                    }
+                }
+
+                int removed = deleteDatabaseFiles(name);
+
+                if (reset && !MODE_OFF.equals(databaseMode)) {
+                    // A database must exist for analysis caching, so start from an empty one.
+                    engine.openDatabase(databaseFile(currentDatabase).getAbsolutePath());
+                    databaseAttached = true;
+                    dbRecordCount = 0;
+                    engine.saveDatabase();
+                }
+
+                persistPreferences();
+                JSObject status = databaseStatusObject();
+                status.put("removedFiles", removed);
+                status.put("reset", reset);
+                call.resolve(status);
             } catch (Exception error) {
                 call.reject("Unable to delete database: " + error.getMessage(), error);
             }
@@ -313,18 +369,138 @@ public class NativeRapfiPlugin extends Plugin {
     /** Diagnostic: report the bundled engine assets and the evaluator actually in use. */
     @PluginMethod
     public void getEngineStatus(PluginCall call) {
-        JSArray entries = new JSArray();
-        for (String line : RapfiAssets.describeExtracted(getContext()))
-            entries.put(line);
-        JSObject result = new JSObject();
-        result.put("evaluator", evaluatorName);
-        result.put("nnue", RapfiJni.isNnueConfigured());
-        result.put("configPath", RapfiJni.getConfigPath() == null ? "" : RapfiJni.getConfigPath());
-        result.put("assets", entries);
-        call.resolve(result);
+        call.resolve(engineStatusObject());
+    }
+
+    // ------------------------------------------------------ database import/export
+
+    /** Export a database to a user-chosen location through the system file picker. */
+    @PluginMethod
+    public void exportDatabase(PluginCall call) {
+        String name = sanitizeName(call.getString("name"));
+        if (name == null)
+            name = currentDatabase;
+        engine.saveDatabase();   // make sure the file on disk is up to date
+
+        File source = databaseFile(name);
+        if (!source.isFile()) {
+            call.reject("数据库文件不存在：" + name);
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/octet-stream");
+        intent.putExtra(Intent.EXTRA_TITLE, name + DATABASE_EXT);
+        startActivityForResult(call, intent, "exportDatabaseResult");
+    }
+
+    @ActivityCallback
+    private void exportDatabaseResult(PluginCall call, ActivityResult result) {
+        if (call == null)
+            return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
+                || result.getData().getData() == null) {
+            call.reject("已取消导出");
+            return;
+        }
+        String requested = sanitizeName(call.getString("name"));
+        final String name = requested == null ? currentDatabase : requested;
+        final Uri target = result.getData().getData();
+
+        new Thread(() -> {
+            try (InputStream in = new FileInputStream(databaseFile(name));
+                 OutputStream out = getContext().getContentResolver().openOutputStream(target)) {
+                if (out == null)
+                    throw new IOException("无法写入所选位置");
+                copy(in, out);
+                mainHandler.post(() -> {
+                    JSObject ok = new JSObject();
+                    ok.put("name", name);
+                    ok.put("bytes", databaseFile(name).length());
+                    call.resolve(ok);
+                });
+            } catch (Exception error) {
+                mainHandler.post(() -> call.reject("导出失败：" + error.getMessage(), error));
+            }
+        }, "rapfi-db-export").start();
+    }
+
+    /** Import a .db file picked by the user and switch to it. */
+    @PluginMethod
+    public void importDatabase(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(call, intent, "importDatabaseResult");
+    }
+
+    @ActivityCallback
+    private void importDatabaseResult(PluginCall call, ActivityResult result) {
+        if (call == null)
+            return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
+                || result.getData().getData() == null) {
+            call.reject("已取消导入");
+            return;
+        }
+        final Uri source = result.getData().getData();
+
+        String requested = sanitizeName(call.getString("name"));
+        String name = requested;
+        if (name == null) {
+            name = sanitizeName(stripDatabaseExtension(displayName(source)));
+            if (name == null)
+                name = "imported-" + (System.currentTimeMillis() / 1000);
+            name = uniqueDatabaseName(name);
+        }
+        final String importName = name;
+
+        new Thread(() -> {
+            try {
+                ensureDatabaseDirectory();
+                try (InputStream in = getContext().getContentResolver().openInputStream(source);
+                     OutputStream out = new FileOutputStream(databaseFile(importName))) {
+                    if (in == null)
+                        throw new IOException("无法读取所选文件");
+                    copy(in, out);
+                }
+                mainHandler.post(() -> runWhenIdle(() -> {
+                    try {
+                        switchDatabaseInternal(importName);
+                        JSObject status = databaseStatusObject();
+                        status.put("name", importName);
+                        call.resolve(status);
+                    } catch (Exception error) {
+                        call.reject("导入后切换失败：" + error.getMessage(), error);
+                    }
+                }));
+            } catch (Exception error) {
+                mainHandler.post(() -> call.reject("导入失败：" + error.getMessage(), error));
+            }
+        }, "rapfi-db-import").start();
     }
 
     // ---------------------------------------------------------------- internals
+
+    /** Apply a weight config selected by the page's "引擎权重" option. */
+    private void applyWeight(String requestedName) {
+        if (!nnueAvailable)
+            return;   // no bundled bundle: keep the built-in classical configuration
+        String name = RapfiAssets.isKnownConfig(requestedName)
+                ? requestedName : RapfiAssets.CONFIG_NNUE;
+        String path = RapfiAssets.configPath(getContext(), name);
+        if (path == null)
+            return;
+
+        weightName = name;
+        evaluatorName = RapfiAssets.CONFIG_NNUE.equals(name)
+                ? RapfiAssets.EVALUATOR : "classical";
+        engine.sendCommand(CMD_RELOADCONFIG + " " + path);
+        // Reloading detaches the database (its config has enable_by_default = false).
+        if (!MODE_OFF.equals(databaseMode))
+            engine.openDatabase(databaseFile(currentDatabase).getAbsolutePath());
+        persistPreferences();
+    }
 
     /**
      * Defer an action until the engine has left its thinking state. The engine ignores
@@ -360,10 +536,12 @@ public class NativeRapfiPlugin extends Plugin {
                 .edit()
                 .putString(PREF_NAME, currentDatabase)
                 .putString(PREF_MODE, databaseMode)
+                .putString(PREF_WEIGHT, weightName == null ? "" : weightName)
                 .apply();
     }
 
     private void switchDatabaseInternal(String name) {
+        ensureDatabaseDirectory();
         currentDatabase = name;
         dbRecordCount = -1;
         engine.openDatabase(databaseFile(name).getAbsolutePath());
@@ -381,12 +559,12 @@ public class NativeRapfiPlugin extends Plugin {
     }
 
     /**
-     * Inject the self-contained database settings panel into the WebView. The panel lives in
-     * {@code assets/rapfi_database_panel.js} and attaches outside the page's application root,
-     * so no packaged Web UI asset has to be modified.
+     * Inject the settings card into the WebView. The card lives in
+     * {@code assets/rapfi_database_panel.js} and appends itself to the Settings view, so no
+     * packaged Web UI asset has to be modified.
      */
-    private void injectDatabasePanel() {
-        String script = readAsset(SCRIPT_DATABASE_PANEL);
+    private void injectSettingsCard() {
+        String script = readAsset(SCRIPT_SETTINGS);
         if (script == null)
             return;
         WebView webView = getBridge() == null ? null : getBridge().getWebView();
@@ -408,6 +586,14 @@ public class NativeRapfiPlugin extends Plugin {
         }
     }
 
+    private File ensureDatabaseDirectory() {
+        File dir = databaseDirectory();
+        if (!dir.exists() && !dir.mkdirs())
+            mainHandler.post(() -> notifyListeners("status",
+                    new JSObject().put("value", "Rapfi: cannot create " + dir.getAbsolutePath())));
+        return dir;
+    }
+
     private File databaseDirectory() {
         return new File(getContext().getFilesDir(), DATABASE_DIR);
     }
@@ -416,10 +602,9 @@ public class NativeRapfiPlugin extends Plugin {
         return new File(databaseDirectory(), name + DATABASE_EXT);
     }
 
-    /** Existing database names (without extension), always including the default. */
+    /** Existing database names (without extension). Always includes the current one. */
     private List<String> listDatabaseNames() {
         List<String> names = new ArrayList<>();
-        names.add(DEFAULT_DATABASE);
         File[] files = databaseDirectory().listFiles();
         if (files != null) {
             Arrays.sort(files);
@@ -428,11 +613,53 @@ public class NativeRapfiPlugin extends Plugin {
                 if (!file.isFile() || !fileName.endsWith(DATABASE_EXT))
                     continue;
                 String name = fileName.substring(0, fileName.length() - DATABASE_EXT.length());
-                if (!DEFAULT_DATABASE.equals(name) && !names.contains(name))
+                if (isBackupName(name))
+                    continue;
+                if (!names.contains(name))
                     names.add(name);
             }
         }
+        if (!names.contains(currentDatabase))
+            names.add(0, currentDatabase);
+        if (names.isEmpty())
+            names.add(DEFAULT_DATABASE);
         return names;
+    }
+
+    /** @return true for "&lt;name&gt;_bak&lt;N&gt;" backup entries. */
+    private static boolean isBackupName(String name) {
+        int index = name.lastIndexOf("_bak");
+        if (index <= 0 || index + 4 >= name.length())
+            return false;
+        for (int i = index + 4; i < name.length(); i++)
+            if (!Character.isDigit(name.charAt(i)))
+                return false;
+        return true;
+    }
+
+    /**
+     * Delete {@code <name>.db} and its {@code <name>_bak<N>.db} backups.
+     *
+     * @return the number of files removed.
+     */
+    private int deleteDatabaseFiles(String name) {
+        int removed = 0;
+        File main = databaseFile(name);
+        if (main.isFile() && main.delete())
+            removed++;
+        File[] files = databaseDirectory().listFiles();
+        if (files != null) {
+            String prefix = name + "_bak";
+            for (File file : files) {
+                String fileName = file.getName();
+                if (!fileName.startsWith(prefix) || !fileName.endsWith(DATABASE_EXT))
+                    continue;
+                String stem = fileName.substring(0, fileName.length() - DATABASE_EXT.length());
+                if (isBackupName(stem) && file.delete())
+                    removed++;
+            }
+        }
+        return removed;
     }
 
     private JSObject databaseStatusObject() {
@@ -449,6 +676,20 @@ public class NativeRapfiPlugin extends Plugin {
         return result;
     }
 
+    private JSObject engineStatusObject() {
+        JSArray entries = new JSArray();
+        for (String line : RapfiAssets.describeExtracted(getContext()))
+            entries.put(line);
+        JSObject result = new JSObject();
+        result.put("evaluator", evaluatorName);
+        result.put("weight", weightName == null ? "" : weightName);
+        result.put("nnueAvailable", nnueAvailable);
+        result.put("configPath", weightName == null ? ""
+                : RapfiAssets.configPath(getContext(), weightName));
+        result.put("assets", entries);
+        return result;
+    }
+
     /** Reject anything that could escape the database directory. */
     private static String sanitizeName(String raw) {
         if (raw == null)
@@ -462,6 +703,50 @@ public class NativeRapfiPlugin extends Plugin {
                 return null;
         }
         return name;
+    }
+
+    private static String stripDatabaseExtension(String name) {
+        if (name == null)
+            return null;
+        String trimmed = name.trim();
+        if (trimmed.toLowerCase().endsWith(DATABASE_EXT))
+            trimmed = trimmed.substring(0, trimmed.length() - DATABASE_EXT.length());
+        return trimmed;
+    }
+
+    /** Pick a non-clashing database name (name, name-2, name-3, ...). */
+    private String uniqueDatabaseName(String base) {
+        String candidate = base;
+        int suffix = 2;
+        while (databaseFile(candidate).exists() && suffix < 1000)
+            candidate = base + "-" + suffix++;
+        return candidate;
+    }
+
+    private String displayName(Uri uri) {
+        try (Cursor cursor = getContext().getContentResolver()
+                .query(uri, null, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) {
+                    String name = cursor.getString(index);
+                    if (name != null && !name.isEmpty())
+                        return name;
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through to the URI segment
+        }
+        String segment = uri.getLastPathSegment();
+        return segment == null ? "imported" : segment;
+    }
+
+    private static void copy(InputStream in, OutputStream out) throws IOException {
+        byte[] buffer = new byte[64 * 1024];
+        int read;
+        while ((read = in.read(buffer)) != -1)
+            out.write(buffer, 0, read);
+        out.flush();
     }
 
     /** Emit a status line so the message drawer shows the cached result count. */

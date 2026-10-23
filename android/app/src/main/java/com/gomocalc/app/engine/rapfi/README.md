@@ -49,6 +49,26 @@
 > 向上。用错模式会把局面上下镜像；经典评估近似对称所以不明显，但 **NNUE 方向敏感，用错会
 > 明显掉棋力**。
 
+### 引擎权重（复用设置页已有的选项）
+
+打包页面的设置页本来就有「**引擎权重**」一项（`setting.thinking.config.title`），选项为
+`Mix9svq NNUE` / `传统(2022/07/23)` / `传统(2021/09/01)`，对应 `CONFIGS =
+["config.toml", "classical220723.toml", "classical210901.toml"]`。只是它被
+`fullEngine` 标志（引擎启动后被置为 `false`）把它中的 NNUE 选项隐藏了。
+
+因此本模块**不新增单独的 NNUE 条目**，而是：
+
+1. 注入脚本通过 `document.querySelector('#app').__vue__.$store.commit('ai/setFullEngine', true)`
+   把 `fullEngine` 恢复为 `true`（仅在权重包可用时），于是 `Mix9svq NNUE` 成为正常可选项。
+2. 插件**拦截 `RELOADCONFIG <名字>`**，把名字映射到解包后的绝对路径：
+   | 页面选项 | 名字 | 实际配置 |
+   | --- | --- | --- |
+   | Mix9svq NNUE | `config.toml` | `mix9svq` 评估 |
+   | 传统(2022/07/23) | `classical220723.toml` | 经典 + `model220723.bin` |
+   | 传统(2021/09/01) | `classical210901.toml` | 经典 + `model210901.bin` |
+3. 重载会按 `enable_by_default = false` 把数据库摘掉，所以紧接着**重发 `YXSETDATABASE`**。
+   选中的权重用 SharedPreferences 持久化，重启后仍然生效。
+
 ### 排查：`failed to load nnue weight from xxx.bin.lz4`
 
 关键看**路径是相对还是绝对**：
@@ -73,9 +93,19 @@ App 内也可以点右下角 `DB` 按钮 →「引擎评估 / Engine」区块查
 > `Evaluator set to mix9svq.` 只表示**配置解析成功**；真正的成功标志是
 > `mix9svq nnue: weight loaded in ~90ms`，并且**没有** `Evaluator mix9svq disabled`。
 
+### 排查：`Error: Failed to load config. Please check if config file is correct.`
+
+这是打包页面在每次开始分析前发送 `RELOADCONFIG config.toml`（相对文件名）导致的：该文件
+不在磁盘上，重载失败，而且重载会把数据库摘掉。插件现在**拦截 `RELOADCONFIG`**（不再转发
+给引擎），改由 NNUE 开关通过 `applyEngineConfig()` 决定加载哪份配置，因此这个报错不会再出现。
+
 ---
 
 ## 二、跨会话分析结果保存
+
+> **数据库目录**：引擎在写库时**不会自己创建父目录**，`filesDir/databases/` 不存在就会打印
+> `Failed to open YXDB file at ...`。插件在初始化（以及建库/导入/切换前）会先 `mkdirs()`，
+> 这个报错不会再出现。
 
 Rapfi 内置 Yixinboard 兼容的分析数据库（`yixindb`）：搜索时自动读取已分析过的局面、
 写入新的分析结论，跨会话保留。本项目复用它，不重新实现存储格式。
@@ -120,14 +150,33 @@ Rapfi 内置 Yixinboard 兼容的分析数据库（`yixindb`）：搜索时自�
 
 ---
 
-## 四、数据库设置（UI）
+## 四、数据库设置（设置页）
 
-`NativeRapfiPlugin.initialize()` 读取 `assets/rapfi_database_panel.js` 注入 WebView。
-面板挂在 `document.body`（Vue 根节点之外）并带独立 id 前缀，**不修改任何打包网页资源**。
+`NativeRapfiPlugin.initialize()` 读取 `assets/rapfi_database_panel.js` 注入 WebView。该脚本
+把一块 **weui 风格的卡片**（与页面的「棋盘显示」等同款 `.weui-cells` / `.weui-cell` 结构，
+直接用打包包内已有的 weui 样式）追加到设置页（`div.settings`）末尾，**不修改任何打包网页
+资源**；路由离开/重新进入或 Vue 重渲染导致卡片消失时，由 700ms 轮询自动补回。
 
-面板提供：**使用方式**（使用 / 只读 / 不使用）、**切换数据库**（下拉 + 切换/删除）、
-**新建数据库**（命名后自动切过去）、以及**引擎评估状态**（评估器、是否启用 NNUE、config 路径、
-每个权重文件的实际大小）。
+卡片提供（均为 `weui-cell` 行，右侧为值/操作）：
+
+| 行 | 内容 |
+| --- | --- |
+| 使用方式 | 下拉：使用数据库 / 只读数据库 / 不使用数据库 |
+| 当前数据库 | `default（N 条）` |
+| 切换数据库 | 下拉选择即切换 |
+| 新建数据库 | 输入名称 + 创建 |
+| 导入 .db 文件 | 调系统文件选择器（SAF），导入后自动切过去 |
+| 导出当前数据库 | 调系统保存对话框（SAF），可存到下载/网盘等用户目录 |
+| 删除当前数据库 | 需确认；同时删除 `<name>_bak*.db` 备份 |
+
+导入/导出均用 `ACTION_OPEN_DOCUMENT` / `ACTION_CREATE_DOCUMENT`，**无需存储权限**；
+导入时自动去除 `.db` 后缀并在重名时改名（`name-2`），导出文件名保持 `<库名>.db`。
+
+> **删除的顺序很重要**：`YXDBStorage::flush()` 在文件不存在时会**重新创建**它
+> （`if (!dirty && std::filesystem::exists(filePath)) return;`），而切换数据库时旧库的析构会
+> flush 一次。所以删除当前库时必须**先切走（或先 detach）、再删文件**，否则刚删掉的文件会
+> 立刻被写回来（这就是之前“点了删除但没删掉”的原因）。
+> 若删的是唯一一个库，则会 detach → 删除 → 重开一个空库（界面提示“已清空（唯一数据库）”）。
 
 ### 插件方法
 
@@ -139,7 +188,9 @@ Rapfi 内置 Yixinboard 兼容的分析数据库（`yixindb`）：搜索时自�
 | `deleteDatabase({name})` | 名称（默认库不可删） | 同上 |
 | `setDatabaseMode({mode})` | `on` \| `readonly` \| `off` | 同上 |
 | `getDatabaseStatus()` | — | 同上 |
-| `getEngineStatus()` | — | `{evaluator, nnue, configPath, assets[]}` |
+| `exportDatabase({name?})` | 库名（缺省当前库） | 系统保存对话框 |
+| `importDatabase({name?})` | 可选库名 | 系统文件选择器，导入后切过去 |
+| `getEngineStatus()` | — | `{evaluator, weight, nnueAvailable, configPath, assets[]}` |
 
 模式 → 引擎命令：`on` → `INFO DATABASE_READONLY 0` + `INFO USEDATABASE 1`；
 `readonly` → `INFO DATABASE_READONLY 1` + `INFO USEDATABASE 1`；`off` → `INFO USEDATABASE 0`。
@@ -154,7 +205,7 @@ Rapfi 内置 Yixinboard 兼容的分析数据库（`yixindb`）：搜索时自�
 
 本模块只动这些：
 
-- `src/main/assets/rapfi/**`（NNUE 权重包）
+- `src/main/assets/rapfi/**`（权重包：`config.toml` + `classical220723.toml` + `classical210901.toml` + 两个 classic 模型 + 4 个 NNUE 权重）
 - `src/main/assets/rapfi_database_panel.js`（注入面板）
 - `engine/rapfi/**`（`RapfiAssets`、`RapfiJni`、`RapfiProtocol`、`NativeRapfiPlugin`、
   `JniRapfiNativeBridge`、本文档）

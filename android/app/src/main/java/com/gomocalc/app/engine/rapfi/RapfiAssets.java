@@ -18,14 +18,21 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Extracts the bundled Rapfi engine assets (NNUE weights + config) from the APK into the app's
- * private files directory so the native engine can read them as ordinary files.
+ * Extracts the bundled Rapfi engine assets (NNUE weights, classical models and the three weight
+ * configs) from the APK into the app's private files directory so the native engine can read them
+ * as ordinary files.
  *
- * <p>The engine normally resolves weight paths relative to the config file. To remove that whole
- * class of failure, the extracted {@code config.toml} is rewritten in place so every
- * {@code weight_file*} / {@code binary_file} points at an <b>absolute</b> path
- * ({@code getModelFullPath()} returns absolute paths unchanged). If the engine then still reports
- * a failure, the message contains the real absolute path, which makes the cause unambiguous.</p>
+ * <p>The three config files mirror the Web UI's "引擎权重" choices:</p>
+ * <ul>
+ *   <li>{@code config.toml} — mix9svq NNUE (strongest)</li>
+ *   <li>{@code classical220723.toml} — classical, model220723.bin</li>
+ *   <li>{@code classical210901.toml} — classical, model210901.bin</li>
+ * </ul>
+ *
+ * <p>The engine normally resolves file paths relative to the config file. To remove that whole
+ * class of failure, every extracted config is rewritten in place so each {@code weight_file*} /
+ * {@code binary_file} points at an <b>absolute</b> path ({@code getModelFullPath()} returns
+ * absolute paths unchanged).</p>
  *
  * <p>Every copy is verified against a minimum plausible size, because a truncated copy would
  * otherwise silently produce a config that loads but whose weights do not.</p>
@@ -36,19 +43,27 @@ final class RapfiAssets {
 
     /** Directory inside {@code assets/} holding the engine bundle. */
     static final String ASSET_DIR = "rapfi";
-    /** Name of the config file inside {@link #ASSET_DIR}. */
-    static final String CONFIG_FILE = "config.toml";
+    /** NNUE config (also the default weight). */
+    static final String CONFIG_NNUE = "config.toml";
+    /** Classical configs, matching the Web UI's weight option order. */
+    static final String CONFIG_CLASSICAL_220723 = "classical220723.toml";
+    static final String CONFIG_CLASSICAL_210901 = "classical210901.toml";
+    /** All config files accepted from the Web UI, in its option order. */
+    static final String[] CONFIG_FILES = {
+        CONFIG_NNUE, CONFIG_CLASSICAL_220723, CONFIG_CLASSICAL_210901
+    };
+
     /** Bump when the bundled weights/config change, to force re-extraction. */
-    private static final String ASSET_VERSION = "mix9svq-3";
+    private static final String ASSET_VERSION = "mix9svq-4";
     /** Marker file recording the extracted version. */
     private static final String MARKER_FILE = ".extracted";
-    /** Every bundled weight is ~10 MB; anything under this means the copy was truncated. */
+    /** Every bundled NNUE weight is ~10 MB; anything under this means the copy was truncated. */
     private static final long MIN_WEIGHT_BYTES = 5L * 1024L * 1024L;
 
-    /** Name of the NNUE evaluator used by the bundled config. */
+    /** Name of the NNUE evaluator used by the bundled NNUE config. */
     static final String EVALUATOR = "mix9svq";
 
-    /** Keys in config.toml that name a file to be resolved by the engine. */
+    /** Keys in a config that name a file to be resolved by the engine. */
     private static final Pattern CONFIG_PATH_KEY = Pattern.compile(
             "(weight_file(?:_black|_white)?|binary_file)\\s*=\\s*\"([^\"]+)\"");
 
@@ -59,14 +74,17 @@ final class RapfiAssets {
         {"mix9svqrenju_bs15_black.bin.lz4", MIN_WEIGHT_BYTES},
         {"mix9svqrenju_bs15_white.bin.lz4", MIN_WEIGHT_BYTES},
         {"model210901.bin", 1024L},
-        {CONFIG_FILE, 1L},
+        {"model220723.bin", 1024L},
+        {CONFIG_NNUE, 1L},
+        {CONFIG_CLASSICAL_220723, 1L},
+        {CONFIG_CLASSICAL_210901, 1L},
     };
 
     private RapfiAssets() { }
 
     /** Result of an extraction attempt. */
     static final class Result {
-        /** Absolute config path to hand to the engine, or null to use the classical fallback. */
+        /** Absolute NNUE config path, or null when the bundle is missing/incomplete. */
         final String configPath;
         /** Human readable lines describing what happened (may be empty). */
         final List<String> log;
@@ -81,7 +99,7 @@ final class RapfiAssets {
     static Result ensureExtracted(Context context) {
         List<String> log = new ArrayList<>();
         File targetDir = engineDirectory(context);
-        File configFile = new File(targetDir, CONFIG_FILE);
+        File configFile = new File(targetDir, CONFIG_NNUE);
         File marker = new File(targetDir, MARKER_FILE);
         AssetManager assets = context.getAssets();
 
@@ -132,27 +150,47 @@ final class RapfiAssets {
         }
 
         try {
-            int rewritten = makeConfigPathsAbsolute(configFile, targetDir);
-            log.add("config.toml rewritten with " + rewritten + " absolute path(s)");
-            Log.i(TAG, "config.toml rewritten paths=" + rewritten);
+            int rewritten = 0;
+            for (String configName : CONFIG_FILES)
+                rewritten += makeConfigPathsAbsolute(new File(targetDir, configName), targetDir);
+            log.add("configs rewritten with " + rewritten + " absolute path(s)");
+            Log.i(TAG, "configs rewritten paths=" + rewritten);
         } catch (IOException error) {
-            Log.w(TAG, "cannot rewrite config.toml", error);
-            log.add("cannot rewrite config.toml: " + error.getMessage());
+            Log.w(TAG, "cannot rewrite configs", error);
+            log.add("cannot rewrite configs: " + error.getMessage());
             return new Result(null, log);
         }
 
         writeMarker(marker);
         if (!configFile.isFile()) {
-            log.add("config.toml missing after extraction");
+            log.add(CONFIG_NNUE + " missing after extraction");
             return new Result(null, log);
         }
         log.add("extracted to " + targetDir.getAbsolutePath());
         return new Result(configFile.getAbsolutePath(), log);
     }
 
-    /** Absolute config path (whether or not the bundle has been extracted yet). */
-    static String configPath(Context context) {
-        return new File(engineDirectory(context), CONFIG_FILE).getAbsolutePath();
+    /**
+     * Absolute path of a bundled config, or null when {@code name} is not one of the configs the
+     * Web UI is allowed to select (also rejects path traversal).
+     */
+    static String configPath(Context context, String name) {
+        String wanted = (name == null || name.isEmpty()) ? CONFIG_NNUE : name.trim();
+        for (String allowed : CONFIG_FILES) {
+            if (allowed.equals(wanted))
+                return new File(engineDirectory(context), allowed).getAbsolutePath();
+        }
+        return null;
+    }
+
+    /** @return true when {@code name} is one of the bundled weight configs. */
+    static boolean isKnownConfig(String name) {
+        if (name == null)
+            return false;
+        for (String allowed : CONFIG_FILES)
+            if (allowed.equals(name.trim()))
+                return true;
+        return false;
     }
 
     /** Report the on-disk state of the bundled files (for diagnostics from the UI). */
@@ -169,7 +207,7 @@ final class RapfiAssets {
     }
 
     /**
-     * Rewrite every file reference in config.toml to an absolute path, so the engine never has to
+     * Rewrite every file reference in a config to an absolute path, so the engine never has to
      * resolve it relative to the config directory.
      *
      * @return the number of references rewritten.
