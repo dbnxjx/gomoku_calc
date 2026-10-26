@@ -231,10 +231,19 @@ public class NativeRapfiPlugin extends Plugin {
     public void close(PluginCall call) {
         commandQueue.execute(() -> {
             try {
-                engine.stopThinking();
-                engine.saveDatabase();
-                engine.close();
-                initialized = false;
+                // initializeBlocking() runs on its own worker, so serialize teardown with it.
+                // Without this guard a quick engine switch could call nativeTerminate() while
+                // nativeInit() was still loading weights/database state.
+                synchronized (NativeRapfiPlugin.this) {
+                    if (initialized) {
+                        engine.stopThinking();
+                        engine.saveDatabase();
+                    }
+                    // close() is idempotent and also releases a partially started native session
+                    // if initialization failed after nativeInit() had allocated its resources.
+                    engine.close();
+                    initialized = false;
+                }
                 call.resolve();
             } catch (Exception error) {
                 call.reject("Native Rapfi close failed: " + error.getMessage(), error);

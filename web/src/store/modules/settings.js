@@ -92,7 +92,6 @@ const propertiesToSave = [
   'rule',
   'threads',
   'rapfiThreads',
-  'engineType',
   'strength',
   'nbest',
   'kataGoMaxPoints',

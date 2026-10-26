@@ -14,14 +14,14 @@ let activeEngineType = 'RAPFI'
 let activePlugin = NativeRapfi
 const listenersAttached = {}
 let initGeneration = 0
-
 function emit(result) { callback(result) }
 
-function parseStdout(output, analysisId) {
+function parseStdout(output, analysisId, engineType) {
   if (typeof output !== 'string' || output.length === 0) return
   const emitResult = (result) => {
-    if (analysisId === undefined || analysisId === null) return emit(result)
-    return emit(Object.assign({ analysisId }, result))
+    const tagged = engineType ? Object.assign({ engineType }, result) : result
+    if (analysisId === undefined || analysisId === null) return emit(tagged)
+    return emit(Object.assign({ analysisId }, tagged))
   }
   let i = output.indexOf(' ')
   if (i === -1) {
@@ -98,7 +98,7 @@ async function attachListeners(plugin, engineType) {
   listenersAttached[engineType] = true
   await plugin.addListener('stdout', (event) => {
     const analysisId = event && typeof event === 'object' ? event.analysisId : undefined
-    parseStdout(readEvent(event), analysisId)
+    parseStdout(readEvent(event), analysisId, engineType)
   })
   await plugin.addListener('stderr', (event) => emit({ error: readEvent(event), engineType }))
   await plugin.addListener('debug', (event) => emit({ debug: readEvent(event), engineType }))
@@ -116,21 +116,25 @@ async function attachListeners(plugin, engineType) {
 async function init(callbackFn_, loadFullEngine, engineType = 'RAPFI') {
   callback = typeof callbackFn_ === 'function' ? callbackFn_ : () => {}
   const nextEngineType = String(engineType).toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
+  const generation = ++initGeneration
   const previousPlugin = activePlugin
   const previousEngineType = activeEngineType
   const wasInitialized = initialized
   activeEngineType = nextEngineType
-  activePlugin = plugins[activeEngineType]
-  const generation = ++initGeneration
-  const selectedPlugin = plugins[nextEngineType]
+  activePlugin = plugins[nextEngineType]
   initialized = false
-  if (wasInitialized && previousEngineType !== activeEngineType && previousPlugin) {
+
+  // Match the previously working lifecycle: interrupt a ready engine's search, but do not
+  // wait for native teardown/stop before initializing the selected engine. KataGo's stop waits
+  // for a GTP response, and Rapfi teardown can wait for JNI search workers; neither may gate the
+  // settings UI or the next engine startup.
+  if (wasInitialized && previousEngineType !== nextEngineType && previousPlugin && previousPlugin.stop) {
     try {
-      if (previousPlugin.close) await previousPlugin.close()
-      else if (previousPlugin.stop) await previousPlugin.stop()
-    } catch (error) { /* the next engine owns the session now */ }
+      Promise.resolve(previousPlugin.stop()).catch(() => {})
+    } catch (error) { /* continue with the selected engine */ }
   }
   if (generation !== initGeneration) return null
+  const selectedPlugin = plugins[nextEngineType]
   try {
     await attachListeners(selectedPlugin, nextEngineType)
     await selectedPlugin.initialize({ engineType: nextEngineType })

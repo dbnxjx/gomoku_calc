@@ -12,6 +12,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -69,6 +70,8 @@ public final class NativeKataGoPlugin extends Plugin {
     private volatile int analysisMaxMoves = ANALYSIS_MAX_MOVES;
     private volatile String startupError;
     private volatile String lastOutputLine;
+    /** Set while a switch is cancelling an in-flight startup. */
+    private volatile boolean closeRequested;
     private volatile boolean benchmarkRunning;
     private volatile Process benchmarkProcess;
     private volatile long analysisId;
@@ -87,6 +90,7 @@ public final class NativeKataGoPlugin extends Plugin {
     public void initialize(PluginCall call) {
         io.execute(() -> {
             try {
+                closeRequested = false;
                 startProcess();
                 awaitReady();
                 ready = true;
@@ -132,10 +136,12 @@ public final class NativeKataGoPlugin extends Plugin {
 
     @PluginMethod
     public void close(PluginCall call) {
-        io.execute(() -> {
-            closeProcess();
-            resolve(call, null);
-        });
+        // Do this outside the single IO executor so it can interrupt awaitReady() when the user
+        // switches away while KataGo is still loading its model/handshake.
+        closeRequested = true;
+        closeProcess();
+        killOrphanedKataGoProcesses();
+        resolve(call, null);
     }
 
     @PluginMethod
@@ -153,6 +159,7 @@ public final class NativeKataGoPlugin extends Plugin {
 
     private void startProcess() throws IOException {
         closeProcess();
+        killOrphanedKataGoProcesses();
         File engine = new File(getContext().getApplicationInfo().nativeLibraryDir, "libkatago.so");
         if (!engine.isFile() || !engine.canExecute()) {
             throw new IOException("KataGo executable is missing or not executable: " + engine);
@@ -162,6 +169,7 @@ public final class NativeKataGoPlugin extends Plugin {
             throw new IOException("Cannot create " + directory);
         File config = copyAsset(CONFIG_ASSET, new File(directory, CONFIG_NAME), true);
         File model = copyModel(new File(directory, MODEL_NAME));
+        if (closeRequested) throw new IOException("KataGo startup cancelled");
         File home = new File(directory, "katago-home");
         if (!home.exists() && !home.mkdirs()) throw new IOException("Cannot create " + home);
 
@@ -631,7 +639,8 @@ public final class NativeKataGoPlugin extends Plugin {
 
     private void awaitReady() throws IOException, InterruptedException {
         long deadline = System.currentTimeMillis() + 180_000L;
-        while (process != null && process.isAlive() && System.currentTimeMillis() < deadline) {
+        while (!closeRequested && process != null && process.isAlive()
+                && System.currentTimeMillis() < deadline) {
             if (startupError != null) throw new IOException("KataGo startup failed: " + startupError);
             Thread.sleep(100L);
             if (protocolVersionReceived) {
@@ -646,6 +655,7 @@ public final class NativeKataGoPlugin extends Plugin {
             }
         }
         if (startupError != null) throw new IOException("KataGo startup failed: " + startupError);
+        if (closeRequested) throw new IOException("KataGo startup cancelled");
         String detail = lastOutputLine == null ? "no engine output" : lastOutputLine;
         if (processExitCode != Integer.MIN_VALUE) {
             throw new IOException("KataGo exited with code " + processExitCode + ": " + detail);
@@ -722,13 +732,76 @@ public final class NativeKataGoPlugin extends Plugin {
 
     private void closeProcess() {
         Process active = process;
+        Process activeBenchmark = benchmarkProcess;
         process = null;
         ready = false;
         analysisRunning = false;
         CountDownLatch stopResponse = pendingAnalysisStopResponse;
         if (stopResponse != null) stopResponse.countDown();
-        if (active != null) active.destroy();
         writer = null;
+        destroyProcess(active);
+        if (activeBenchmark != null && activeBenchmark != active) destroyProcess(activeBenchmark);
+    }
+
+    /**
+     * Process.destroy() is asynchronous on Android. Wait for the child to exit before allowing
+     * the next engine to start, otherwise a switch can briefly run two KataGo model instances
+     * and exhaust the device's memory. The forcible fallback is bounded so close never hangs on
+     * a child that stopped responding.
+     */
+    private void destroyProcess(Process active) {
+        if (active == null) return;
+        active.destroy();
+        try {
+            if (!active.waitFor(2, TimeUnit.SECONDS)) {
+                active.destroyForcibly();
+                active.waitFor(2, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException error) {
+            active.destroyForcibly();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Android may leave a child executable alive when the app process is force-stopped. Such a
+     * child is no longer reachable through {@link #process}, but it still owns the KataGo model
+     * and can consume more than 2 GB. Kill only same-package KataGo children before a new engine
+     * session is created or after a close request.
+     */
+    private void killOrphanedKataGoProcesses() {
+        File procRoot = new File("/proc");
+        File[] entries = procRoot.listFiles();
+        if (entries == null) return;
+        String packageName = getContext().getPackageName();
+        int ownPid = android.os.Process.myPid();
+        for (File entry : entries) {
+            String name = entry.getName();
+            if (ownPid == parsePid(name)) continue;
+            int pid = parsePid(name);
+            if (pid <= 0) continue;
+            String command = readProcessCommand(entry);
+            if (command == null || !command.contains("libkatago.so") || !command.contains(packageName)) continue;
+            android.os.Process.killProcess(pid);
+        }
+    }
+
+    private static int parsePid(String value) {
+        try { return Integer.parseInt(value); }
+        catch (NumberFormatException ignored) { return -1; }
+    }
+
+    private static String readProcessCommand(File processDirectory) {
+        File cmdline = new File(processDirectory, "cmdline");
+        try (FileInputStream input = new FileInputStream(cmdline)) {
+            byte[] bytes = new byte[4096];
+            int count = input.read(bytes);
+            if (count <= 0) return null;
+            for (int i = 0; i < count; i++) if (bytes[i] == 0) bytes[i] = ' ';
+            return new String(bytes, 0, count, StandardCharsets.UTF_8);
+        } catch (IOException ignored) {
+            return null;
+        }
     }
 
     private static int parsePositive(String text, int fallback) {
