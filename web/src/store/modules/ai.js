@@ -270,7 +270,7 @@ const actions = {
       } else if (r.nodes !== undefined) {
         commit('setPVOutput', { key: 'nodes', value: r.nodes })
       } else if (r.totalnodes !== undefined) {
-        if (eventEngineType !== 'KATAGO') commit('setOutput', { key: 'nodes', value: r.totalnodes })
+        commit('setOutput', { key: 'nodes', value: r.totalnodes })
       } else if (r.totaltime !== undefined) {
         commit('setOutput', { key: 'time', value: r.totaltime })
       } else if (r.speed !== undefined) {
@@ -315,6 +315,7 @@ const actions = {
       }
     }
     const engineURL = await engine.init(callback, loadFullEngine, selectedEngineType)
+    if (!engineURL) return
     commit('setFullEngine', false)
     commit('addMessage', 'Selected engine: ' + selectedEngineType)
     commit('addMessage', 'Engine backend: ' + engineURL)
@@ -413,7 +414,6 @@ const actions = {
     }
 
     if (engine.stopThinking()) {
-      commit('setReady', false)
       commit('clearRealtime', 'best')
       commit('clearRealtime', 'lost')
       commit('addUsedTime')

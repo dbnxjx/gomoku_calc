@@ -57,7 +57,7 @@ const state = {
   engineType: 'RAPFI', // 当前引擎：RAPFI / KATAGO
   strength: 100, // 棋力限制 (默认100%棋力)
   nbest: 1, // MultiPV多点分析
-  kataGoMaxPoints: 10, // KataGo 热力图最多显示的候选点数
+  kataGoMaxPoints: 10, // KataGo UI最多显示的候选点数（底层始终分析全盘）
   configIndex: 0, // 配置序号: [0, CONFIGS.length)
   candRange: 3, // 选点范围: {0, 1, 2, 3, 4, 5}
   hashSize: 128, // 置换表大小, 单位 MiB

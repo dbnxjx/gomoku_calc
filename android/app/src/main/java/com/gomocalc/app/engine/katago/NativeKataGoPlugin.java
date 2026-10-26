@@ -48,6 +48,7 @@ public final class NativeKataGoPlugin extends Plugin {
     private static final String CONFIG_NAME = "gtp.cfg";
     private static final String COLUMNS = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
     private static final int ANALYSIS_INTERVAL_CS = 10;
+    private static final int ANALYSIS_MAX_MOVES = 226; // 225 board points plus pass
     private static final String BENCHMARK_PREFS = "katago-benchmark";
     private static final int BENCHMARK_VERSION = 3;
     private static final int BENCHMARK_VISITS = 64;
@@ -65,7 +66,7 @@ public final class NativeKataGoPlugin extends Plugin {
     private volatile int readyResponseCount;
     private volatile int processExitCode = Integer.MIN_VALUE;
     private volatile long analysisStartedNanos;
-    private volatile int analysisMaxMoves = 10;
+    private volatile int analysisMaxMoves = ANALYSIS_MAX_MOVES;
     private volatile String startupError;
     private volatile String lastOutputLine;
     private volatile boolean benchmarkRunning;
@@ -78,6 +79,7 @@ public final class NativeKataGoPlugin extends Plugin {
     private int nextGtpCommandId = 1;
     private final Map<String, HeatPoint> heatmap = new LinkedHashMap<>();
     private final Map<String, Long> lastDebugByRank = new HashMap<>();
+    private volatile long passVisits;
     private volatile int boardSize = 15;
     private volatile String sideToMove = "B";
 
@@ -282,18 +284,18 @@ public final class NativeKataGoPlugin extends Plugin {
             return;
         }
         if (KataGoProtocol.YXNBEST.equals(head)) {
-            int n = parts.length > 1 ? Math.min(20, parsePositive(parts[1], 3)) : 3;
             stopAnalysisAndAwait();
             analysisId = parts.length > 2 ? parseAnalysisId(parts[2]) : analysisId + 1;
             analysisRunning = true;
-            analysisMaxMoves = n;
+            analysisMaxMoves = ANALYSIS_MAX_MOVES;
             synchronized (heatmap) { heatmap.clear(); }
+            passVisits = 0L;
             synchronized (lastDebugByRank) { lastDebugByRank.clear(); }
             analysisStartedNanos = System.nanoTime();
             emit("debug", "GTP > kata-analyze " + sideToMove + " " + ANALYSIS_INTERVAL_CS
-                    + " maxmoves " + n + " pvVisits true");
+                    + " maxmoves " + ANALYSIS_MAX_MOVES + " pvVisits true");
             writeLine("kata-analyze " + sideToMove + " " + ANALYSIS_INTERVAL_CS
-                    + " maxmoves " + n + " pvVisits true");
+                    + " maxmoves " + ANALYSIS_MAX_MOVES + " pvVisits true");
             return;
         }
         if (KataGoProtocol.YXSTOP.equals(head)) {
@@ -394,13 +396,16 @@ public final class NativeKataGoPlugin extends Plugin {
                 while (i + 1 < end && !isKey(tokens[i + 1])) pv.add(tokens[++i]);
             }
         }
-        if (move == null || "pass".equalsIgnoreCase(move)) return;
+        if (move == null) return;
+        Long visitCount = parseLong(visits);
+        if ("pass".equalsIgnoreCase(move)) {
+            passVisits = visitCount == null ? 0L : visitCount;
+            return;
+        }
         output.add("INFO PV 0");
         if (visits != null) {
             output.add("INFO NODES " + visits);
-            output.add("INFO TOTALNODES " + visits);
         }
-        Long visitCount = parseLong(visits);
         int rank = order == null ? 0 : parseRank(order);
         if (rank > 0) output.add("INFO RANK " + rank);
         Double rate = parseNumber(winrate);
@@ -432,8 +437,11 @@ public final class NativeKataGoPlugin extends Plugin {
                 if (analysisStartedNanos != 0L) {
                     long totalVisits = 0L;
                     for (HeatPoint candidate : heatmap.values()) totalVisits += candidate.visits;
+                    totalVisits += passVisits;
                     double seconds = Math.max(0.001, (System.nanoTime() - analysisStartedNanos) / 1e9);
+                    output.add("INFO TOTALNODES " + totalVisits);
                     output.add(String.format(Locale.US, "INFO SPEED %.3f", totalVisits / seconds));
+                    output.add("INFO TOTALTIME " + Math.round(seconds * 1000.0));
                 }
                 output.add("HEATMAP " + serializeHeatmap());
             }

@@ -115,7 +115,7 @@
     <group v-if="engineType === 'KATAGO'">
       <group-title slot="title">KataGo</group-title>
       <x-number title="显示候选点数" v-model="kataGoMaxPointsValue" button-style="round" width="75px" :min="1"
-        :max="20" fillable />
+        :max="225" fillable />
       <x-switch :title="$t('setting.board.showHeatmap')" v-model="showHeatmapValue" />
       <box gap="8px 16px 16px">
         <x-button type="primary" :disabled="kataGoBenchmarking || !nativeKataGoAvailable"
@@ -350,7 +350,7 @@ export default {
         return this.kataGoMaxPoints
       },
       set(v) {
-        this.setValue({ key: 'kataGoMaxPoints', value: Math.max(1, Math.min(20, Number(v) || 1)) })
+        this.setValue({ key: 'kataGoMaxPoints', value: Math.max(1, Math.min(225, Number(v) || 1)) })
       },
     },
     databaseModeOptions() {

@@ -1,7 +1,7 @@
 <template>
   <div class="game">
     <div class="board-box">
-      <Board ref="board" :is-ai-turn="isAITurn" :preview-pv="previewPv" :kill-point-scores="killPointScores" @clicked="clicked"></Board>
+      <Board ref="board" :is-ai-turn="isAITurn" :kill-point-scores="killPointScores" @clicked="clicked"></Board>
 
       <div class="button-box">
         <scroller lock-y :scrollbar-x="$store.state.screenWidth < buttonBarWidth" :bounce="false">
@@ -144,9 +144,16 @@
 
     <div class="info-box" :style="showAnalysis || engineType === 'KATAGO' ? {} : { display: 'none' }">
       <div>
-        <x-progress v-if="thinking && aiTimeUsed > 0 && turnTime != 0"
+        <x-progress v-if="engineType === 'RAPFI' && thinking && aiTimeUsed > 0 && turnTime != 0"
           :percent="Math.min((100 * aiTimeUsed) / Math.min(turnTime, matchTime), 100)"
           :show-cancel="false"></x-progress>
+
+        <div class="analysis-summary">
+          <span v-if="engineType === 'KATAGO'">总 visits {{ getNodesText(outputs.nodes) }}</span>
+          <span v-else>总节点 {{ getNodesText(outputs.nodes) }}</span>
+          <span>{{ getSpeedText(outputs.speed || outputs.visitsPerSecond) }} visits/s</span>
+          <span>{{ getTimeText(outputs.time) }}</span>
+        </div>
 
         <template v-if="engineType === 'RAPFI'">
           <!-- 单点分析的信息输出 -->
@@ -155,18 +162,12 @@
             <tr style="background-color: #f7f7f7">
               <th>{{ $t('game.info.depth') }}</th>
               <th>{{ $t('game.info.eval') }}</th>
-              <th>{{ $t('game.info.speed') }}</th>
-              <th>{{ $t('game.info.nodes') }}</th>
-              <th>{{ $t('game.info.time') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>{{ outputs.pv[0].depth + '-' + outputs.pv[0].seldepth }}</td>
               <td style="font-weight: bold">{{ outputs.pv[0].eval }}</td>
-              <td>{{ getSpeedText(outputs.speed) }}</td>
-              <td>{{ getNodesText(outputs.nodes) }}</td>
-              <td>{{ getTimeText(outputs.time) }}</td>
             </tr>
             <tr>
               <td colspan="5">
@@ -179,10 +180,7 @@
                     ">
                     {{ $t('game.info.bestline') }}
                   </flexbox-item>
-                  <flexbox-item>
-                    <Bestline :bestline="outputs.pv[0].bestline" :boardSize="boardSize"
-                      v-on:pvPreview="(pv) => (previewPv = pv)" v-on:pvSet="setPvAsPosition"></Bestline>
-                  </flexbox-item>
+                  <flexbox-item>{{ formatBestline(outputs.pv[0].bestline) }}</flexbox-item>
                 </flexbox>
               </td>
             </tr>
@@ -191,22 +189,6 @@
 
           <!-- 多点分析的信息输出 -->
           <div v-else>
-          <x-table :cell-bordered="true" style="background-color: #fff; line-height: 210%">
-            <thead>
-              <tr style="background-color: #f7f7f7">
-                <th>{{ $t('game.info.speed') }}</th>
-                <th>{{ $t('game.info.nodes') }}</th>
-                <th>{{ $t('game.info.time') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{{ getSpeedText(outputs.speed) }}</td>
-                <td>{{ getNodesText(outputs.nodes) }}</td>
-                <td>{{ getTimeText(outputs.time) }}</td>
-              </tr>
-            </tbody>
-          </x-table>
           <x-table :cell-bordered="true" style="background-color: #fff; line-height: 210%">
             <thead>
               <tr style="background-color: #f7f7f7">
@@ -223,10 +205,7 @@
                   {{ outputs.pv[i - 1].depth + '-' + outputs.pv[i - 1].seldepth }}
                 </td>
                 <td style="font-weight: bold; min-width: 55px">{{ outputs.pv[i - 1].eval }}</td>
-                <td>
-                  <Bestline :bestline="outputs.pv[i - 1].bestline" :boardSize="boardSize"
-                    v-on:pvPreview="(pv) => (previewPv = pv)" v-on:pvSet="setPvAsPosition"></Bestline>
-                </td>
+                <td>{{ formatBestline(outputs.pv[i - 1].bestline) }}</td>
               </tr>
             </tbody>
           </x-table>
@@ -234,10 +213,6 @@
         </template>
 
         <div v-else class="katago-analysis">
-          <div class="katago-summary">
-            候选点 {{ kataGoCandidates.length }}/{{ kataGoMaxPoints }} · 总 visits {{ getNodesText(outputs.nodes) }} ·
-            {{ getSpeedText(outputs.visitsPerSecond) }} visits/s
-          </div>
           <x-table :cell-bordered="true" style="background-color: #fff; line-height: 210%">
             <thead>
               <tr style="background-color: #f7f7f7">
@@ -334,7 +309,6 @@ import {
   dateFormat,
 } from 'vux'
 import Board from '@/components/Board.vue'
-import Bestline from '@/components/Bestline.vue'
 import MoveTree from '@/components/MoveTree.vue'
 import { mapState, mapGetters, mapMutations, mapActions } from 'vuex'
 import { Promise } from 'q'
@@ -348,7 +322,6 @@ export default {
   },
   components: {
     Board,
-    Bestline,
     MoveTree,
     Flexbox,
     FlexboxItem,
@@ -375,7 +348,6 @@ export default {
       thinkingCanceled: false,
       gifLoading: false,
       screenshotData: null,
-      previewPv: null,
     }
   },
   computed: {
@@ -832,18 +804,6 @@ export default {
       this.setValue({ key: 'aiThinkWhite', value: thinkWhite })
     },
 
-    setPvAsPosition(pv) {
-      this.checkThinking().then(() => {
-        const shouldResume = this.prepareKataGoForPositionChange()
-        let fullPosition = pv.position.concat(pv.pv)
-        this.newBoard(this.boardSize)
-        for (let pos of fullPosition) {
-          if (!this.makeMove(pos)) break
-        }
-        if (shouldResume) this.startThink()
-      })
-    },
-
     getSpeedText(speed) {
       if (speed < 10000) {
         return speed.toString();
@@ -852,6 +812,12 @@ export default {
       } else {
         return Math.floor(speed / 1000000) + "M";
       }
+    },
+
+    formatBestline(bestline) {
+      return (bestline || []).map((pos) =>
+        `${String.fromCharCode('A'.charCodeAt(0) + pos[0])}${this.boardSize - pos[1]}`
+      ).join(' ')
     },
 
     getNodesText(nodes) {
@@ -960,6 +926,16 @@ export default {
 
 <style lang="less" scoped>
 .katago-summary {
+  padding: 8px 10px;
+  color: #34495e;
+  font-size: 13px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7e9;
+}
+
+.analysis-summary {
+  display: flex;
+  justify-content: space-around;
   padding: 8px 10px;
   color: #34495e;
   font-size: 13px;

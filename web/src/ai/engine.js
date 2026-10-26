@@ -115,14 +115,21 @@ async function attachListeners(plugin, engineType) {
 
 async function init(callbackFn_, loadFullEngine, engineType = 'RAPFI') {
   callback = typeof callbackFn_ === 'function' ? callbackFn_ : () => {}
-  activeEngineType = String(engineType).toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
+  const nextEngineType = String(engineType).toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
+  const previousPlugin = activePlugin
+  const previousEngineType = activeEngineType
+  const wasInitialized = initialized
+  activeEngineType = nextEngineType
   activePlugin = plugins[activeEngineType]
   const generation = ++initGeneration
   initialized = false
+  if (wasInitialized && previousEngineType !== activeEngineType && previousPlugin && previousPlugin.stop) {
+    try { await previousPlugin.stop() } catch (error) { /* the next engine owns the session now */ }
+  }
   try {
     await attachListeners(activePlugin, activeEngineType)
     await activePlugin.initialize({ engineType: activeEngineType })
-    if (generation !== initGeneration) return 'native://' + activeEngineType.toLowerCase()
+    if (generation !== initGeneration) return null
     initialized = true
     emit({ ok: true, engineType: activeEngineType })
   } catch (error) {
