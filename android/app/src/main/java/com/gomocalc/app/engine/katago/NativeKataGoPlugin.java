@@ -131,6 +131,14 @@ public final class NativeKataGoPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void close(PluginCall call) {
+        io.execute(() -> {
+            closeProcess();
+            resolve(call, null);
+        });
+    }
+
+    @PluginMethod
     public void benchmark(PluginCall call) {
         synchronized (this) {
             if (benchmarkRunning) {

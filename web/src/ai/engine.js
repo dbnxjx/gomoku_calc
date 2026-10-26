@@ -108,7 +108,7 @@ async function attachListeners(plugin, engineType) {
     emit({ benchmark: data.message || '', benchmarking: !!data.running, engineType })
   })
   await plugin.addListener('exit', (event) => {
-    initialized = false
+    if (engineType === activeEngineType) initialized = false
     emit({ msg: 'Native ' + engineType + ' exited: ' + readEvent(event), engineType })
   })
 }
@@ -122,23 +122,29 @@ async function init(callbackFn_, loadFullEngine, engineType = 'RAPFI') {
   activeEngineType = nextEngineType
   activePlugin = plugins[activeEngineType]
   const generation = ++initGeneration
+  const selectedPlugin = plugins[nextEngineType]
   initialized = false
-  if (wasInitialized && previousEngineType !== activeEngineType && previousPlugin && previousPlugin.stop) {
-    try { await previousPlugin.stop() } catch (error) { /* the next engine owns the session now */ }
+  if (wasInitialized && previousEngineType !== activeEngineType && previousPlugin) {
+    try {
+      if (previousPlugin.close) await previousPlugin.close()
+      else if (previousPlugin.stop) await previousPlugin.stop()
+    } catch (error) { /* the next engine owns the session now */ }
   }
+  if (generation !== initGeneration) return null
   try {
-    await attachListeners(activePlugin, activeEngineType)
-    await activePlugin.initialize({ engineType: activeEngineType })
+    await attachListeners(selectedPlugin, nextEngineType)
+    await selectedPlugin.initialize({ engineType: nextEngineType })
     if (generation !== initGeneration) return null
     initialized = true
-    emit({ ok: true, engineType: activeEngineType })
+    emit({ ok: true, engineType: nextEngineType })
   } catch (error) {
+    if (generation !== initGeneration) return null
     emit({
-      error: 'Native ' + activeEngineType + ' engine is not connected: ' + (error.message || error),
-      engineType: activeEngineType,
+      error: 'Native ' + nextEngineType + ' engine is not connected: ' + (error.message || error),
+      engineType: nextEngineType,
     })
   }
-  return 'native://' + activeEngineType.toLowerCase()
+  return 'native://' + nextEngineType.toLowerCase()
 }
 
 function sendCommand(command) {

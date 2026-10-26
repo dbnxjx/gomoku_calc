@@ -217,6 +217,8 @@ const actions = {
     if (selectedEngineType === 'RAPFI') commit('setNativeEngineAvailable', false)
     const callback = (r) => {
       const eventEngineType = r.engineType || selectedEngineType
+      const currentEngineType = String(rootState.settings.engineType || 'RAPFI').toUpperCase()
+      if (eventEngineType !== currentEngineType) return
       if (
         eventEngineType === 'KATAGO' &&
         r.analysisId !== undefined &&

@@ -20,7 +20,7 @@
             @touchcancel="cancelLongPress"
           >
             <span class="record-title">{{ record.title }}</span>
-            <button class="record-delete" @click.stop="confirmDeleteRecord(record)">删除</button>
+            <button class="record-delete" @mousedown.stop @touchstart.stop @click.stop="confirmDeleteRecord(record)">删除</button>
           </div>
           <div v-if="records.length === 0" class="record-empty">暂无棋谱</div>
         </div>
@@ -175,6 +175,10 @@ export default {
     async createRecord(name) {
       const title = recordService.sanitizeName(name || recordService.formatDateName())
       const filename = recordService.filenameFromName(title)
+      if (await this.hasRecordName(filename)) {
+        alert('已有同名棋谱')
+        return false
+      }
       this.currentRecordFilename = filename
       this.$store.dispatch('moveTree/init')
       try {
@@ -182,9 +186,17 @@ export default {
         await this.refreshRecords()
         this.currentRecordFilename = filename
         this.dropdownOpen = false
+        return true
       } catch (e) {
         alert('新建棋谱失败: ' + e.message)
       }
+    },
+
+    async hasRecordName(name, excludingFilename = null) {
+      await this.refreshRecords()
+      const filename = recordService.filenameFromName(name).toLowerCase()
+      return this.records.some((record) => record.filename !== excludingFilename
+        && record.filename.toLowerCase() === filename)
     },
 
     async loadRecord(record) {
@@ -260,6 +272,11 @@ export default {
       const nextName = prompt('重命名棋谱', record.title)
       if (!nextName || nextName.trim() === record.title) return
       try {
+        const nextFilename = recordService.filenameFromName(nextName)
+        if (await this.hasRecordName(nextFilename, record.filename)) {
+          alert('已有同名棋谱')
+          return
+        }
         const renamed = await recordService.renameRecord(record.filename, nextName)
         if (this.currentRecordFilename === record.filename) this.currentRecordFilename = renamed.filename
         await this.refreshRecords()
@@ -451,12 +468,12 @@ export default {
 }
 .record-delete {
   flex: 0 0 auto;
-  border: 1px solid #e74c3c;
+  border: 0;
   border-radius: 3px;
   background: #fff;
   color: #e74c3c;
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 5px 8px;
 }
 .record-delete:active {
   background: #fdecea;

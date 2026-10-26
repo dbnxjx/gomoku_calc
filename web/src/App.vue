@@ -68,6 +68,8 @@ export default {
     return {
       showHeader: true,
       drawerOpen: false,
+      settingsLoaded: false,
+      initialEngineStarted: false,
     }
   },
   computed: {
@@ -106,17 +108,18 @@ export default {
       this.$i18n.locale = newValue
     },
     engineType(newValue, oldValue) {
-      if (oldValue && newValue !== oldValue) this.initEngine(true)
+      if (this.settingsLoaded && oldValue && newValue !== oldValue) this.initEngine(true)
     },
   },
   created() {
-    this.getBrowserCapabilities()
     this.readCookies()
+    this.getBrowserCapabilities()
     if (!this.language) {
       this.setValue({ key: 'language', value: this.$i18n.locale })
     } else {
       this.$i18n.locale = this.language
     }
+    this.$nextTick(() => { this.settingsLoaded = true })
   },
   mounted() {
     const _this = this
@@ -156,7 +159,11 @@ export default {
 
     // The browser WASM engine was removed. This only probes the future native
     // Rapfi plugin and leaves the page usable while it is absent.
-    _this.initEngine(true)
+    _this.$nextTick(() => {
+      if (this.initialEngineStarted) return
+      this.initialEngineStarted = true
+      this.initEngine(true)
+    })
   },
 }
 </script>

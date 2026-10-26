@@ -5,6 +5,8 @@ export const FREESTYLE = 0,
   RENJU = 2
 
 export const CONFIGS = ['config.toml', 'classical220723.toml', 'classical210901.toml']
+const SETTINGS_KEY = 'GMKC_CFG'
+const versionedSettingsKey = `${SETTINGS_KEY}_${version}`
 
 const state = {
   language: null,
@@ -158,7 +160,9 @@ function saveCookies() {
   let stateToSave = {}
   for (let p of propertiesToSave) stateToSave[p] = state[p]
   for (let p of boardPropertiesToSave) stateToSave[p] = state.boardStyle[p]
-  localStorage.setItem('GMKC_CFG_' + version, JSON.stringify(stateToSave))
+  const serialized = JSON.stringify(stateToSave)
+  localStorage.setItem(versionedSettingsKey, serialized)
+  localStorage.setItem(SETTINGS_KEY, serialized)
 }
 
 function applyValue(state, key, value) {
@@ -201,10 +205,27 @@ const mutations = {
 
 const actions = {
   readCookies({ commit }) {
-    let json = localStorage.getItem('GMKC_CFG_' + version)
-    if (!json) return
+    let json
+    try {
+      json = localStorage.getItem(versionedSettingsKey) || localStorage.getItem(SETTINGS_KEY)
+    } catch (error) {
+      saveCookies()
+      return
+    }
+    if (!json) {
+      saveCookies()
+      return
+    }
 
-    let stateToRead = JSON.parse(json)
+    let stateToRead
+    try {
+      stateToRead = JSON.parse(json)
+    } catch (error) {
+      localStorage.removeItem(versionedSettingsKey)
+      localStorage.removeItem(SETTINGS_KEY)
+      saveCookies()
+      return
+    }
     if (typeof stateToRead.engineType === 'string') {
       stateToRead.engineType = stateToRead.engineType.toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
     }
@@ -222,9 +243,13 @@ const actions = {
         commit('setBoardStyleNoSave', { key: p, value: stateToRead[p] })
       }
     }
+    // Rewrite the normalized snapshot so newly introduced defaults and engine
+    // constraints are retained on the next launch.
+    saveCookies()
   },
   clearCookies() {
-    localStorage.removeItem('GMKC_CFG_' + version)
+    localStorage.removeItem(versionedSettingsKey)
+    localStorage.removeItem(SETTINGS_KEY)
   },
 }
 

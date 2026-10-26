@@ -227,6 +227,21 @@ public class NativeRapfiPlugin extends Plugin {
         });
     }
 
+    @PluginMethod
+    public void close(PluginCall call) {
+        commandQueue.execute(() -> {
+            try {
+                engine.stopThinking();
+                engine.saveDatabase();
+                engine.close();
+                initialized = false;
+                call.resolve();
+            } catch (Exception error) {
+                call.reject("Native Rapfi close failed: " + error.getMessage(), error);
+            }
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
         super.handleOnDestroy();
@@ -261,6 +276,10 @@ public class NativeRapfiPlugin extends Plugin {
         runWhenIdle(() -> {
             try {
                 ensureDatabaseDirectory();
+                if (databaseNameExists(name)) {
+                    call.reject("已有同名数据库：" + name);
+                    return;
+                }
                 currentDatabase = name;
                 dbRecordCount = 0;          // freshly created databases start empty
                 engine.openDatabase(databaseFile(name).getAbsolutePath());
@@ -455,6 +474,10 @@ public class NativeRapfiPlugin extends Plugin {
 
         String requested = sanitizeName(call.getString("name"));
         String name = requested;
+        if (name != null && databaseNameExists(name)) {
+            call.reject("已有同名数据库：" + name);
+            return;
+        }
         if (name == null) {
             name = sanitizeName(stripDatabaseExtension(displayName(source)));
             if (name == null)
@@ -705,9 +728,22 @@ public class NativeRapfiPlugin extends Plugin {
     private String uniqueDatabaseName(String base) {
         String candidate = base;
         int suffix = 2;
-        while (databaseFile(candidate).exists() && suffix < 1000)
+        while (databaseNameExists(candidate) && suffix < 1000)
             candidate = base + "-" + suffix++;
         return candidate;
+    }
+
+    private boolean databaseNameExists(String wanted) {
+        for (String existing : listDatabaseNames()) {
+            if (existing.equalsIgnoreCase(wanted)) return true;
+        }
+        File[] files = databaseDirectory().listFiles();
+        if (files == null) return false;
+        String expected = wanted + DATABASE_EXT;
+        for (File file : files) {
+            if (file.isFile() && file.getName().equalsIgnoreCase(expected)) return true;
+        }
+        return false;
     }
 
     private String displayName(Uri uri) {

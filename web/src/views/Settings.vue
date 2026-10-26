@@ -18,20 +18,40 @@
     <group v-if="engineType === 'RAPFI'">
       <group-title slot="title">分析数据库</group-title>
       <popup-radio title="使用方式" v-model="databaseModeValue" :options="databaseModeOptions" />
-      <cell title="当前数据库">
+      <cell title="当前数据库" is-link @click.native="databasePickerOpen = true">
         {{ databaseCurrent }}<span v-if="databaseRecordCount >= 0">（{{ databaseRecordCount }} 条）</span>
       </cell>
-      <popup-radio title="切换数据库" v-model="databaseCurrentValue" :options="databaseOptions" />
-      <cell title="新建数据库">
-        <input v-model="newDatabaseName" type="text" maxlength="64" placeholder="名称" />
-        <x-button mini type="primary" :disabled="databaseBusy" @click.native="createDatabase">创建</x-button>
-      </cell>
-      <cell title="数据库文件">
-        <x-button mini :disabled="databaseBusy" @click.native="importDatabase">导入</x-button>
-        <x-button mini :disabled="databaseBusy" @click.native="exportDatabase">导出</x-button>
-        <x-button mini type="warn" :disabled="databaseBusy" @click.native="deleteDatabase">删除</x-button>
-      </cell>
     </group>
+
+    <div v-transfer-dom>
+      <popup v-model="databasePickerOpen" position="bottom" height="auto">
+        <div class="database-picker">
+          <div v-for="name in databasePickerNames" :key="name" class="database-picker-row">
+            <button class="database-picker-name" @click="switchDatabase(name)">{{ name }}</button>
+            <div class="database-picker-actions">
+              <button class="database-export" @click="exportDatabase(name)">导出</button>
+              <button v-if="name !== databaseCurrent" class="database-delete" @click="deleteDatabase(name)">删除</button>
+            </div>
+            <span v-if="name === databaseCurrent" class="database-check">✓</span>
+          </div>
+          <div class="database-picker-action-row database-picker-first-action" @click="importDatabase">导入已有数据库</div>
+          <div class="database-picker-action-row" @click="openCreateDatabase">新建数据库</div>
+        </div>
+      </popup>
+    </div>
+
+    <div v-transfer-dom>
+      <x-dialog v-model="createDatabaseDialog" hide-on-blur>
+        <div class="database-create-dialog">
+          <div class="database-create-title">新建数据库</div>
+          <input ref="databaseNameInput" v-model="newDatabaseName" maxlength="64" autofocus placeholder="名称" />
+          <div class="database-create-buttons">
+            <button @click="createDatabaseDialog = false">取消</button>
+            <button class="database-confirm" @click="createDatabase">确定</button>
+          </div>
+        </div>
+      </x-dialog>
+    </div>
 
     <group v-if="engineType === 'RAPFI'">
       <group-title slot="title">{{ $t('setting.thinking.timeTitle') }}</group-title>
@@ -132,7 +152,7 @@
 </template>
 
 <script>
-import { Group, GroupTitle, XSwitch, XNumber, XButton, Radio, PopupRadio, Cell, Box } from 'vux'
+import { TransferDom, Group, GroupTitle, XSwitch, XNumber, XButton, Radio, PopupRadio, Cell, Box, Popup, XDialog } from 'vux'
 import { registerPlugin } from '@capacitor/core'
 import { mapState, mapMutations, mapActions } from 'vuex'
 
@@ -140,6 +160,7 @@ const NativeRapfi = registerPlugin('NativeRapfi')
 
 export default {
   name: 'settings',
+  directives: { TransferDom },
   components: {
     Group,
     GroupTitle,
@@ -150,6 +171,8 @@ export default {
     PopupRadio,
     Cell,
     Box,
+    Popup,
+    XDialog,
   },
   data: function () {
     return {
@@ -160,6 +183,8 @@ export default {
       databaseRecordCount: -1,
       newDatabaseName: '',
       databaseBusy: false,
+      databasePickerOpen: false,
+      createDatabaseDialog: false,
     }
   },
   computed: {
@@ -360,8 +385,8 @@ export default {
         { key: 'off', value: '不使用数据库' },
       ]
     },
-    databaseOptions() {
-      return this.databaseNames.map((name) => ({ key: name, value: name }))
+    databasePickerNames() {
+      return [this.databaseCurrent].concat(this.databaseNames.filter((name) => name !== this.databaseCurrent))
     },
     databaseModeValue: {
       get() {
@@ -369,14 +394,6 @@ export default {
       },
       set(value) {
         this.setDatabaseMode(value)
-      },
-    },
-    databaseCurrentValue: {
-      get() {
-        return this.databaseCurrent
-      },
-      set(value) {
-        this.switchDatabase(value)
       },
     },
     threadsValue: {
@@ -530,7 +547,7 @@ export default {
         return this.engineType
       },
       set(v) {
-        this.setValue({ key: 'engineType', value: v })
+        this.setValue({ key: 'engineType', value: String(v).toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI' })
       },
     },
     showHeatmapValue: {
@@ -642,19 +659,47 @@ export default {
       this.databaseBusy = true
       try {
         this.adoptDatabaseStatus(await NativeRapfi.switchDatabase({ name }))
+        this.databasePickerOpen = false
       } catch (error) {
         this.$vux.toast.text('数据库切换失败')
       } finally {
         this.databaseBusy = false
       }
     },
+    openCreateDatabase() {
+      this.databasePickerOpen = false
+      this.newDatabaseName = this.databaseTimestampName()
+      this.createDatabaseDialog = true
+      this.$nextTick(() => {
+        if (this.$refs.databaseNameInput) {
+          this.$refs.databaseNameInput.focus()
+          this.$refs.databaseNameInput.select()
+        }
+      })
+    },
+    databaseTimestampName() {
+      const now = new Date()
+      const pad = (value) => String(value).padStart(2, '0')
+      const base = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+      let candidate = base
+      let suffix = 2
+      while (this.databaseNames.some((name) => name.toLowerCase() === candidate.toLowerCase())) {
+        candidate = `${base}-${suffix++}`
+      }
+      return candidate
+    },
     async createDatabase() {
-      const name = (this.newDatabaseName || '').trim()
-      if (!name || this.databaseBusy) return
+      const name = (this.newDatabaseName || '').trim() || this.databaseTimestampName()
+      if (this.databaseBusy) return
+      if (this.databaseNames.some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+        this.$vux.toast.text('已有同名数据库')
+        return
+      }
       this.databaseBusy = true
       try {
         this.adoptDatabaseStatus(await NativeRapfi.createDatabase({ name }))
         this.newDatabaseName = ''
+        this.createDatabaseDialog = false
       } catch (error) {
         this.$vux.toast.text('数据库创建失败')
       } finally {
@@ -666,29 +711,30 @@ export default {
       this.databaseBusy = true
       try {
         this.adoptDatabaseStatus(await NativeRapfi.importDatabase())
+        this.databasePickerOpen = false
       } catch (error) {
         this.$vux.toast.text('数据库导入失败')
       } finally {
         this.databaseBusy = false
       }
     },
-    async exportDatabase() {
-      if (this.databaseBusy) return
+    async exportDatabase(name = this.databaseCurrent) {
+      if (this.databaseBusy || !name) return
       this.databaseBusy = true
       try {
-        await NativeRapfi.exportDatabase({ name: this.databaseCurrent })
+        await NativeRapfi.exportDatabase({ name })
       } catch (error) {
         this.$vux.toast.text('数据库导出失败')
       } finally {
         this.databaseBusy = false
       }
     },
-    async deleteDatabase() {
-      if (this.databaseBusy || !this.databaseCurrent) return
-      if (!window.confirm(`删除数据库「${this.databaseCurrent}」？`)) return
+    async deleteDatabase(name) {
+      if (this.databaseBusy || !name || name === this.databaseCurrent) return
+      if (!window.confirm(`删除数据库「${name}」？`)) return
       this.databaseBusy = true
       try {
-        this.adoptDatabaseStatus(await NativeRapfi.deleteDatabase({ name: this.databaseCurrent }))
+        this.adoptDatabaseStatus(await NativeRapfi.deleteDatabase({ name }))
       } catch (error) {
         this.$vux.toast.text('数据库删除失败')
       } finally {
@@ -719,5 +765,102 @@ export default {
     max-width: 800px;
     margin: 0 auto; // Center align if necessary
   }
+}
+
+.database-picker {
+  background: #f1f2f3;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.engine-picker {
+  background: #fff;
+}
+.engine-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 64px;
+  padding: 0 24px;
+  border: 0;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  text-align: left;
+  font-size: 18px;
+  color: #222;
+}
+.engine-picker-check {
+  color: #1aad19;
+  font-size: 22px;
+}
+.database-picker-row {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 16px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+.database-picker-name {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 16px;
+  color: #333;
+}
+.database-picker-actions button {
+  border: 0;
+  background: #fff;
+  color: #888;
+  padding: 6px 8px;
+}
+.database-picker-actions .database-delete {
+  color: #e64340;
+}
+.database-picker-action-row {
+  min-height: 48px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  background: #fff;
+  color: #333;
+  font-size: 16px;
+}
+.database-picker-first-action {
+  margin-top: 0.2em;
+}
+.database-check {
+  color: #1aad19;
+  font-size: 20px;
+}
+.database-create-dialog {
+  padding: 18px;
+  background: #fff;
+}
+.database-create-title {
+  margin-bottom: 12px;
+  font-size: 17px;
+}
+.database-create-dialog input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 16px;
+}
+.database-create-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  margin-top: 16px;
+}
+.database-create-buttons button {
+  border: 0;
+  background: transparent;
+  color: #888;
+  font-size: 15px;
+}
+.database-create-buttons .database-confirm {
+  color: #1aad19;
 }
 </style>

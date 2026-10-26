@@ -68,17 +68,6 @@
                   <i class="fa fa-stop" :style="{ color: thinking ? '#E74C3C' : '#78281F' }"></i>
                 </x-button>
               </flexbox-item>
-              <flexbox-item>
-                <x-button :disabled="thinking || !ready || gameEnded" style="padding: 0" @click.native="() => {
-                  showBalanceOptions = true
-                }
-                  ">
-                  <i class="fa fa-adjust" :style="{
-                    color: thinking || !ready || gameEnded ? '#1A5276' : '#3498DB',
-                  }"></i>
-                </x-button>
-              </flexbox-item>
-
               <flexbox-item :span="1 / 40" style="min-width: 0px"></flexbox-item>
 
               <flexbox-item>
@@ -104,36 +93,6 @@
 
               <flexbox-item :span="1 / 40" style="min-width: 0px"></flexbox-item>
 
-              <flexbox-item>
-                <x-button style="padding: 0" @click.native="() => {
-                  checkThinking().then(() => {
-                    rotateBoard()
-                  })
-                }
-                  ">
-                  <i class="fa fa-repeat"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button style="padding: 0" @click.native="() => {
-                  checkThinking().then(() => {
-                    showFlipOptions = true
-                  })
-                }
-                  ">
-                  <i class="fa fa-exchange"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button style="padding: 0" @click.native="() => {
-                  checkThinking().then(() => {
-                    showMoveOptions = true
-                  })
-                }
-                  ">
-                  <i class="fa fa-arrows"></i>
-                </x-button>
-              </flexbox-item>
             </flexbox>
           </div>
         </scroller>
@@ -156,39 +115,6 @@
         </div>
 
         <template v-if="engineType === 'RAPFI'">
-          <!-- 单点分析的信息输出 -->
-          <x-table v-if="nbest == 1" :cell-bordered="true" style="background-color: #fff; line-height: 210%">
-          <thead>
-            <tr style="background-color: #f7f7f7">
-              <th>{{ $t('game.info.depth') }}</th>
-              <th>{{ $t('game.info.eval') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>{{ outputs.pv[0].depth + '-' + outputs.pv[0].seldepth }}</td>
-              <td style="font-weight: bold">{{ outputs.pv[0].eval }}</td>
-            </tr>
-            <tr>
-              <td colspan="5">
-                <flexbox align="stretch" :gutter="0" style="padding: 5px">
-                  <flexbox-item style="
-                      padding: 2px 10px 2px 0;
-                      width: initial;
-                      line-height: initial;
-                      flex: none;
-                    ">
-                    {{ $t('game.info.bestline') }}
-                  </flexbox-item>
-                  <flexbox-item>{{ formatBestline(outputs.pv[0].bestline) }}</flexbox-item>
-                </flexbox>
-              </td>
-            </tr>
-          </tbody>
-          </x-table>
-
-          <!-- 多点分析的信息输出 -->
-          <div v-else>
           <x-table :cell-bordered="true" style="background-color: #fff; line-height: 210%">
             <thead>
               <tr style="background-color: #f7f7f7">
@@ -209,7 +135,6 @@
               </tr>
             </tbody>
           </x-table>
-          </div>
         </template>
 
         <div v-else class="katago-analysis">
@@ -238,23 +163,6 @@
       </div>
 
       <MoveTree ref="moveTree" @node-selected="onTreeNodeSelected" @tree-cleared="onTreeCleared" @record-loaded="onRecordLoaded" />
-    </div>
-
-    <div v-transfer-dom>
-      <actionsheet v-model="showBalanceOptions" :menus="balanceOptions" @on-click-menu="(key) => {
-        if (key == 0 || key == 1) this.startThinkBalance(key + 1)
-      }
-        " show-cancel :cancel-text="$t('common.cancel')"></actionsheet>
-    </div>
-
-    <div v-transfer-dom>
-      <actionsheet v-model="showFlipOptions" :menus="flipOptions" @on-click-menu="onFlipOption" show-cancel
-        :cancel-text="$t('common.cancel')"></actionsheet>
-    </div>
-
-    <div v-transfer-dom>
-      <actionsheet v-model="showMoveOptions" :menus="moveOptions" @on-click-menu="onMoveOption" show-cancel
-        :cancel-text="$t('common.cancel')"></actionsheet>
     </div>
 
     <div v-transfer-dom>
@@ -339,9 +247,6 @@ export default {
     return {
       aiTimeUsed: 0,
       showLoading: false,
-      showBalanceOptions: false,
-      showFlipOptions: false,
-      showMoveOptions: false,
       showScreenshotOptions: false,
       showScreenshot: false,
       console: console,
@@ -394,7 +299,9 @@ export default {
         }))
     },
     buttonBarWidth() {
-      const Width = 620
+      // Keep the remaining buttons at their original size after removing the
+      // balance/transform controls.
+      const Width = 465
       if (this.screenWidth >= 1024)
         return Math.min(Width, Width + Math.max(0, this.screenWidth - 1024))
       else
@@ -402,25 +309,6 @@ export default {
     },
     bestline() {
       return this.bestlineStr(0)
-    },
-    balanceOptions() {
-      return [this.$t('game.balance1'), this.$t('game.balance2')]
-    },
-    flipOptions() {
-      return [
-        this.$t('game.flip') + ' |',
-        this.$t('game.flip') + ' -',
-        this.$t('game.flip') + ' ╲',
-        this.$t('game.flip') + ' ╱',
-      ]
-    },
-    moveOptions() {
-      return [
-        this.$t('game.move') + ' ↑',
-        this.$t('game.move') + ' ↓',
-        this.$t('game.move') + ' ←',
-        this.$t('game.move') + ' →',
-      ]
     },
     shotOptions() {
       return [this.$t('game.shotJpg'), this.$t('game.shotGif')]
@@ -621,10 +509,15 @@ export default {
         const defaultName = recordService.formatDateName()
         const recordName = prompt('新建棋谱名称', defaultName)
         if (recordName === null) return
+        const newRecordName = (recordName || '').trim() || defaultName
+        if (this.$refs.moveTree && await this.$refs.moveTree.hasRecordName(newRecordName)) {
+          alert('已有同名棋谱')
+          return
+        }
         const shouldResume = this.prepareKataGoForPositionChange()
         this.newBoard(this.boardSize)
         this.restart()
-        if (this.$refs.moveTree) await this.$refs.moveTree.createRecord(recordName || defaultName)
+        if (this.$refs.moveTree) await this.$refs.moveTree.createRecord(newRecordName)
         if (shouldResume) this.startThink()
       })
     },
