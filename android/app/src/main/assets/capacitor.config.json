@@ -1,5 +1,11 @@
 {
 	"appId": "com.gomocalc.app",
 	"appName": "Gomoku Calculator",
-	"webDir": "dist"
+	"webDir": "dist",
+	"plugins": {
+		"SystemBars": {
+			"hidden": true,
+			"insetsHandling": "disable"
+		}
+	}
 }

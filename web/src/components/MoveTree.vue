@@ -27,7 +27,14 @@
       </div>
     </div>
     <div class="tree-scroll" ref="scroll">
-      <canvas ref="canvas" @click="onCanvasClick" @dblclick="onCanvasDblClick"></canvas>
+      <canvas
+        ref="canvas"
+        @pointerdown="onCanvasPointerDown"
+        @pointerup="onCanvasPointerUp"
+        @pointercancel="onCanvasPointerCancel"
+        @dblclick="onCanvasDblClick"
+        @contextmenu.prevent
+      ></canvas>
     </div>
   </group>
 </template>
@@ -54,6 +61,7 @@ export default {
       saveTimer: null,
       longPressTimer: null,
       longPressHandled: false,
+      pointerDown: null,
     }
   },
   computed: {
@@ -108,26 +116,46 @@ export default {
       return null
     },
 
-    onCanvasClick(e) {
+    canvasPoint(e) {
       const canvas = this.$refs.canvas
       const rect = canvas.getBoundingClientRect()
-      const scroll = this.$refs.scroll
-      const px = e.clientX - rect.left + scroll.scrollLeft
-      const py = e.clientY - rect.top + scroll.scrollTop
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    },
 
-      const node = this.findNodeAt(this.rootNode, px, py)
+    onCanvasPointerDown(e) {
+      const point = this.canvasPoint(e)
+      this.pointerDown = {
+        id: e.pointerId,
+        x: point.x,
+        y: point.y,
+        moved: false,
+      }
+    },
+
+    onCanvasPointerUp(e) {
+      const down = this.pointerDown
+      this.pointerDown = null
+      if (!down || down.id !== e.pointerId) return
+      const point = this.canvasPoint(e)
+      if (Math.hypot(point.x - down.x, point.y - down.y) > 8) return
+
+      const node = this.findNodeAt(this.rootNode, point.x, point.y)
       if (node) {
+        e.preventDefault()
         this.$store.dispatch('moveTree/goToNode', node.id)
         this.$emit('node-selected', node)
       }
     },
 
+    onCanvasPointerCancel() {
+      this.pointerDown = null
+    },
+
     onCanvasDblClick(e) {
       const canvas = this.$refs.canvas
       const rect = canvas.getBoundingClientRect()
-      const scroll = this.$refs.scroll
-      const px = e.clientX - rect.left + scroll.scrollLeft
-      const py = e.clientY - rect.top + scroll.scrollTop
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
 
       const node = this.findNodeAt(this.rootNode, px, py)
       if (node && node !== this.rootNode) {
@@ -309,10 +337,11 @@ export default {
 
       for (const child of node.children) {
         const isPrimary = child === node.primaryChild
-        const onPath = this.isOnCurrentPath(child)
 
-        ctx.strokeStyle = (isPrimary || onPath) ? '#333' : '#bbb'
-        ctx.lineWidth = (isPrimary || onPath) ? 2.0 : 1.2
+        // Selecting a node only highlights that node. Branch edges retain their
+        // primary/alternative styling instead of making the whole selected path glow.
+        ctx.strokeStyle = isPrimary ? '#333' : '#bbb'
+        ctx.lineWidth = isPrimary ? 2.0 : 1.2
 
         const startX = node.renderX
         const startY = node.renderY + NODE_SIZE / 2
@@ -445,9 +474,16 @@ export default {
   border: 1px solid #ddd;
   border-radius: 4px;
   box-sizing: border-box;
+  touch-action: pan-x pan-y;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 canvas {
   display: block;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
 </style>

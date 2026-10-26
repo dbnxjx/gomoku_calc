@@ -13,25 +13,26 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags '-std=c++17'
-                // Rapfi native engine ABIs (arm64-v8a is the primary phone target).
                 abiFilters 'arm64-v8a', 'x86_64'
             }
         }
         aaptOptions {
-             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
-             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
     androidResources {
-        noCompress += ["gz"]
+        // KataGo's model stays gzip-compressed; Rapfi weights and models are byte-exact assets.
+        noCompress += ['gz', 'lz4', 'bin']
     }
+
     packaging {
         jniLibs {
             // KataGo is an executable ELF stored in the native library directory.
             useLegacyPackaging = true
         }
     }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -39,7 +40,6 @@ android {
         }
     }
 
-    // Rapfi native engine (librapfi_jni.so). CMake sources live in src/main/cpp/rapfi/.
     externalNativeBuild {
         cmake {
             path file('src/main/cpp/CMakeLists.txt')
@@ -48,7 +48,7 @@ android {
 }
 
 repositories {
-    flatDir{
+    flatDir {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
@@ -73,5 +73,5 @@ try {
         apply plugin: 'com.google.gms.google-services'
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.info("google-services.json not found. Push Notifications won't work")
 }

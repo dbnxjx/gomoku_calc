@@ -13,6 +13,7 @@ let initialized = false
 let activeEngineType = 'RAPFI'
 let activePlugin = NativeRapfi
 const listenersAttached = {}
+let initGeneration = 0
 
 function emit(result) { callback(result) }
 
@@ -116,10 +117,12 @@ async function init(callbackFn_, loadFullEngine, engineType = 'RAPFI') {
   callback = typeof callbackFn_ === 'function' ? callbackFn_ : () => {}
   activeEngineType = String(engineType).toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
   activePlugin = plugins[activeEngineType]
+  const generation = ++initGeneration
   initialized = false
   try {
     await attachListeners(activePlugin, activeEngineType)
     await activePlugin.initialize({ engineType: activeEngineType })
+    if (generation !== initGeneration) return 'native://' + activeEngineType.toLowerCase()
     initialized = true
     emit({ ok: true, engineType: activeEngineType })
   } catch (error) {

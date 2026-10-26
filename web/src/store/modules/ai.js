@@ -202,6 +202,10 @@ const actions = {
   async initEngine({ commit, dispatch, state, rootState }, loadFullEngine) {
     commit('setLoadingProgress', 0.0)
     commit('setReady', false)
+    // A newly selected native engine owns a fresh protocol session. Force the
+    // next board sync to send START before any YXBOARD payload.
+    commit('setStartSize', 0)
+    commit('setRestart', true)
     commit('setKataGoPaused', false)
     commit(
       'addMessage',

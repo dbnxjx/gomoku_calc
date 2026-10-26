@@ -162,6 +162,7 @@ DatabaseSearchParams DatabaseSearchParams::captureFromConfig()
     p.nonPVWritePly                 = cfg.nonPVWritePly;
     p.nonPVWriteMinDepth            = cfg.nonPVWriteMinDepth;
     p.writeValueRange               = cfg.writeValueRange;
+    p.minWriteDepth                 = cfg.minWriteDepth;
     p.exactOverwritePly             = cfg.exactOverwritePly;
     p.nonExactOverwritePly          = cfg.nonExactOverwritePly;
     p.overwriteRule                 = cfg.overwriteRule;

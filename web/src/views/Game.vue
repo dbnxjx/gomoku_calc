@@ -149,14 +149,6 @@
           :show-cancel="false"></x-progress>
 
         <template v-if="engineType === 'RAPFI'">
-          <div v-if="showAdvantageBar" class="advantage-panel">
-            <div class="advantage-track" aria-label="black and white advantage">
-              <div class="advantage-black" :style="{ width: `${blackAdvantagePercent === null ? 50 : blackAdvantagePercent}%` }"></div>
-              <div class="advantage-white"></div>
-            </div>
-            <div v-if="advantageLabel" class="advantage-label">{{ advantageLabel }}</div>
-          </div>
-
           <!-- 单点分析的信息输出 -->
           <x-table v-if="nbest == 1" :cell-bordered="true" style="background-color: #fff; line-height: 210%">
           <thead>
@@ -270,22 +262,6 @@
         </div>
       </div>
 
-      <group>
-        <group-title slot="title">
-          {{ $t('game.currentPos') }}
-          <span v-if="clipboardAvailable" style="float:right;">
-            <button class="icon-button" @click="copyPosStrToClipboard">
-              <i class="fa fa-files-o" aria-hidden="true"></i>
-            </button>
-            <button class="icon-button" @click="pastePosStrFromClipboard">
-              <i class="fa fa-clipboard" aria-hidden="true"></i>
-            </button>
-          </span>
-        </group-title>
-        <x-textarea ref="curposArea" :value="posStr" @on-change="onPositionTextChanged" style="padding: 5px 12px"
-          :show-counter="false" :rows="1" autosize></x-textarea>
-      </group>
-
       <MoveTree ref="moveTree" @node-selected="onTreeNodeSelected" @tree-cleared="onTreeCleared" @record-loaded="onRecordLoaded" />
     </div>
 
@@ -350,11 +326,8 @@ import {
   Scroller,
   LoadMore,
   XTable,
-  XTextarea,
   Actionsheet,
   XProgress,
-  Group,
-  GroupTitle,
   Popup,
   XDialog,
   XCircle,
@@ -383,11 +356,8 @@ export default {
     Scroller,
     LoadMore,
     XTable,
-    XTextarea,
     Actionsheet,
     XProgress,
-    Group,
-    GroupTitle,
     Popup,
     XDialog,
     XCircle,
@@ -406,7 +376,6 @@ export default {
       gifLoading: false,
       screenshotData: null,
       previewPv: null,
-      clipboardAvailable: navigator.clipboard && window.isSecureContext
     }
   },
   computed: {
@@ -421,14 +390,13 @@ export default {
       'aiThinkWhite',
       'showAnalysis',
       'showVisitsPerSecond',
-      'showAdvantageBar',
       'engineType',
     ]),
     ...mapState('ai', ['outputs', 'thinking', 'lastThinkTime', 'ready', 'loadingProgress', 'nativeEngineAvailable', 'kataGoPaused']),
     ...mapState('position', ['position', 'lastPosition', 'winline', 'swaped']),
     ...mapGetters('settings', ['turnTime', 'matchTime', 'gameRule']),
     ...mapGetters('ai', ['bestlineStr', 'bestline']),
-    ...mapGetters('position', ['isEmpty', 'playerToMove', 'moveLeftCount', 'posStr']),
+    ...mapGetters('position', ['isEmpty', 'playerToMove', 'moveLeftCount']),
     killPointScores() {
       if (this.engineType !== 'RAPFI' || this.thinking) return []
       const analyzedPosition = this.$store.state.ai.lastThinkPosition
@@ -494,17 +462,6 @@ export default {
     gameEnded() {
       return this.winline.length > 0 || this.moveLeftCount == 0
     },
-    blackAdvantagePercent() {
-      if (typeof this.outputs.blackWinRate !== 'number' || Number.isNaN(this.outputs.blackWinRate)) return null
-      const rate = this.outputs.blackWinRate > 1 ? this.outputs.blackWinRate : this.outputs.blackWinRate * 100
-      return Math.max(0, Math.min(100, rate))
-    },
-    advantageLabel() {
-      if (this.blackAdvantagePercent === null) return ''
-      const percent = this.blackAdvantagePercent >= 50 ? this.blackAdvantagePercent : 100 - this.blackAdvantagePercent
-      const side = this.blackAdvantagePercent >= 50 ? this.$t('game.info.blackAdvantage') : this.$t('game.info.whiteAdvantage')
-      return `${side}: ${percent.toFixed(1)}%`
-    },
     currentTreeNode() {
       const treeVersion = this.$store.state.moveTree.version
       if (treeVersion < 0) return null
@@ -514,7 +471,7 @@ export default {
       return !!(this.currentTreeNode && this.currentTreeNode.parent)
     },
     canTreeForward() {
-      return !!this.getRightmostVisibleChild(this.currentTreeNode)
+      return !!this.getNextTreeChild(this.currentTreeNode)
     },
   },
   methods: {
@@ -525,7 +482,6 @@ export default {
     ...mapMutations('settings', ['setValue']),
     ...mapMutations('ai', ['clearUsedTime']),
     ...mapActions('position', [
-      'setPosStr',
       'makeMove',
       'backToBegin',
       'backward',
@@ -564,12 +520,6 @@ export default {
       if (this.thinking) this.stop({ manual: false })
       else this.$store.dispatch('ai/invalidateAnalysis')
       return shouldResume
-    },
-
-    onPositionTextChanged(value) {
-      const shouldResume = this.prepareKataGoForPositionChange()
-      this.setPosStr(value)
-      if (shouldResume) this.$nextTick(() => this.startThink())
     },
 
     onFlipOption(key) {
@@ -711,9 +661,9 @@ export default {
       return node && node.children ? node.children : []
     },
 
-    getRightmostVisibleChild(node) {
+    getNextTreeChild(node) {
       const children = this.getVisibleTreeChildren(node)
-      return children.length > 0 ? children[children.length - 1] : null
+      return children.length > 0 ? children[0] : null
     },
 
     syncBoardToTreeNode(node) {
@@ -746,17 +696,17 @@ export default {
     },
 
     forwardWithTree() {
-      const child = this.getRightmostVisibleChild(this.currentTreeNode)
+      const child = this.getNextTreeChild(this.currentTreeNode)
       if (!child) return
       this.syncBoardToTreeNode(child)
     },
 
     forwardToEndWithTree() {
       let node = this.currentTreeNode
-      let child = this.getRightmostVisibleChild(node)
+      let child = this.getNextTreeChild(node)
       while (child) {
         node = child
-        child = this.getRightmostVisibleChild(node)
+        child = this.getNextTreeChild(node)
       }
       if (node && node !== this.currentTreeNode) this.syncBoardToTreeNode(node)
     },
@@ -928,16 +878,6 @@ export default {
       }
     },
 
-    async copyPosStrToClipboard() {
-      await navigator.clipboard.writeText(this.posStr);
-      this.$vux.toast.text(this.$t('game.copiedToClipboard'))
-    },
-
-    async pastePosStrFromClipboard() {
-      const posStr = await navigator.clipboard.readText()
-      this.onPositionTextChanged(posStr)
-    },
-
     onTreeNodeSelected(node) {
       if (!node) return
       this.syncBoardToTreeNode(node)
@@ -965,11 +905,6 @@ export default {
     bestline: function () {
       if (this.$refs.bestlineArea) this.$refs.bestlineArea.updateAutosize()
     },
-    posStr: function (newPos) {
-      this.$refs.curposArea.updateAutosize()
-      if (newPos.length > 0) this.$router.push({ name: 'game', params: { pos: newPos } })
-      else this.$router.push({ name: 'game' })
-    },
     boardSize: function (newSize) {
       if (this.thinking) this.stop()
       this.newBoard(newSize)
@@ -982,7 +917,6 @@ export default {
   },
   mounted() {
     this.newBoard(this.boardSize)
-    if (this.$route.params.pos) this.setPosStr(this.$route.params.pos)
 
     window.addEventListener('keydown', (event) => {
       const target = event.target
@@ -1025,45 +959,12 @@ export default {
 </script>
 
 <style lang="less" scoped>
-.advantage-panel {
-  margin: 8px 0 12px;
-  padding: 8px 10px;
-  background: #fff;
-  border: 1px solid #e5e7e9;
-}
-
-.advantage-label {
-  color: #566573;
-  font-size: 12px;
-  line-height: 20px;
-  text-align: center;
-}
-
 .katago-summary {
   padding: 8px 10px;
   color: #34495e;
   font-size: 13px;
   background: #fff;
   border-bottom: 1px solid #e5e7e9;
-}
-
-.advantage-track {
-  display: flex;
-  height: 8px;
-  margin: 4px 0;
-  overflow: hidden;
-  background: #f4f6f7;
-  border-radius: 4px;
-}
-
-.advantage-black {
-  background: #273746;
-  transition: width 180ms ease;
-}
-
-.advantage-white {
-  flex: 1;
-  background: #fdfefe;
 }
 
 .selectable {

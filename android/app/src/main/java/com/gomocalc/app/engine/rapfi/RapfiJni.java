@@ -33,6 +33,49 @@ public final class RapfiJni implements AutoCloseable {
     private final Listener listener;
     private volatile boolean started;
 
+    /**
+     * Absolute path of the engine config (NNUE weights + database) to load, or null for the
+     * built-in classical evaluation. Set by the app layer before {@link #start(String)}.
+     */
+    private static volatile String configPath;
+
+    /**
+     * Absolute path of the Yixinboard-compatible analysis database, or null when
+     * cross-session persistence is disabled.
+     */
+    private static volatile String databasePath;
+
+    /** Set the engine config path used on the next {@link #start}. Null = built-in classical. */
+    public static void configureConfig(String absolutePath) {
+        configPath = absolutePath == null || absolutePath.isEmpty() ? null : absolutePath;
+    }
+
+    /** @return the configured engine config path, or null for the built-in classical config. */
+    public static String getConfigPath() {
+        return configPath;
+    }
+
+    /** @return true when an external (NNUE) config is configured. */
+    public static boolean isNnueConfigured() {
+        return configPath != null;
+    }
+
+    /** Set the analysis database path used on the next {@link #start}. */
+    public static void configureDatabase(String absolutePath) {
+        databasePath = absolutePath;
+    }
+
+    /** @return the configured analysis database path, or null when disabled. */
+    public static String getDatabasePath() {
+        return databasePath;
+    }
+
+    /** @return true when cross-session analysis persistence is configured. */
+    public static boolean isDatabaseConfigured() {
+        String path = databasePath;
+        return path != null && !path.isEmpty();
+    }
+
     public RapfiJni(Listener listener) {
         this.listener = listener;
     }
@@ -53,10 +96,55 @@ public final class RapfiJni implements AutoCloseable {
             throw new IllegalStateException("librapfi_jni.so is not available for this ABI");
         if (started)
             return;
-        int rc = nativeInit(configPath);
+        String effectiveConfig = (configPath != null && !configPath.isEmpty())
+                ? configPath : RapfiJni.configPath;
+        int rc = nativeInit(effectiveConfig);
         if (rc != 0)
             throw new IllegalStateException("Rapfi config failed to load (code " + rc + ")");
         started = true;
+
+        // Open the cross-session analysis database at the app-provided writable path.
+        // YXSETDATABASE takes the rest of the line, so paths containing spaces are safe.
+        String dbPath = databasePath;
+        if (dbPath != null && !dbPath.isEmpty())
+            nativeSendCommand(RapfiProtocol.YXSETDATABASE + " " + dbPath);
+    }
+
+    /**
+     * Switch to another database file immediately (flushing the current one first).
+     * Safe to call while the engine is running; the engine flushes and reloads on switch.
+     */
+    public synchronized void openDatabase(String absolutePath) {
+        if (absolutePath == null || absolutePath.isEmpty())
+            return;
+        databasePath = absolutePath;
+        if (started) {
+            nativeSendCommand(RapfiProtocol.YXSAVEDATABASE);   // persist the outgoing database
+            nativeSendCommand(RapfiProtocol.YXSETDATABASE + " " + absolutePath);
+        }
+    }
+
+    /** Attach or detach the configured analysis database. */
+    public void setDatabaseEnabled(boolean enabled) {
+        if (started)
+            nativeSendCommand(RapfiProtocol.INFO + " " + RapfiProtocol.INFO_USEDATABASE + " "
+                              + (enabled ? 1 : 0));
+    }
+
+    /** Keep reading cached results while refusing to write new ones. */
+    public void setDatabaseReadOnly(boolean readOnly) {
+        if (started)
+            nativeSendCommand(RapfiProtocol.INFO + " " + RapfiProtocol.INFO_DATABASE_READONLY + " "
+                              + (readOnly ? 1 : 0));
+    }
+
+    /**
+     * Flush accumulated analysis records to the database file. The engine skips the write
+     * when nothing changed, so this is cheap to call after every completed search.
+     */
+    public void saveDatabase() {
+        if (started)
+            nativeSendCommand(RapfiProtocol.YXSAVEDATABASE);
     }
 
     /** Send one protocol command line, e.g. {@code INFO RULE 0} or {@code YXNBEST 3}. */

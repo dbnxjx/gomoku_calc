@@ -30,11 +30,9 @@ class MoveNode {
     if (existing) return existing
 
     const newNode = new MoveNode(this, x, y, color)
-    if (this.children.length > 0) {
-      this.children.splice(1, 0, newNode)
-    } else {
-      this.children.push(newNode)
-    }
+    // Keep the original continuation first. New alternatives are appended so
+    // the tree grows to the right without changing the forward button's path.
+    this.children.push(newNode)
     return newNode
   }
 

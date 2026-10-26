@@ -26,8 +26,6 @@
         ,"advantage": "黑白占优"
         ,"black": "黑棋"
         ,"white": "白棋"
-        ,"blackAdvantage": "黑优"
-        ,"whiteAdvantage": "白优"
         ,"waiting": "等待原生引擎数据"
         ,"nativeUnavailable": "原生 Rapfi 尚未接入"
         ,"visitsPerSecond": "访问速度"
@@ -125,7 +123,6 @@
         "showHeatmap": "显示热力图",
         "showKillPoints": "显示杀点",
         "showVisitsPerSecond": "显示访问速度",
-        "showAdvantageBar": "显示黑白占优条",
       "showPvEval": {
         "title": "显示分析估值",
         "none": "不显示",

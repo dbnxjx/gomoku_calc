@@ -26,8 +26,6 @@
         ,"advantage": "Advantage"
         ,"black": "Black"
         ,"white": "White"
-        ,"blackAdvantage": "Black advantage"
-        ,"whiteAdvantage": "White advantage"
         ,"waiting": "Waiting for native engine"
         ,"nativeUnavailable": "Native Rapfi is not connected"
         ,"visitsPerSecond": "Visits/s"
@@ -125,7 +123,6 @@
         "showHeatmap": "Show Heatmap",
         "showKillPoints": "Show Kill Points",
         "showVisitsPerSecond": "Show Visits/s",
-        "showAdvantageBar": "Show Advantage Bar",
       "showPvEval": {
         "title": "Show PV Evaluation",
         "none": "Disable",

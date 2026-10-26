@@ -109,6 +109,11 @@ struct DatabaseConfig
         int nonPVWriteMinDepth = 25;
         /// The range of value allowed to write in PV/NonPV node
         int writeValueRange = 800;
+        /// Absolute minimum search depth required to write ANY record. The root node
+        /// bypasses the per-branch depth gates (pvWriteMinDepth/mateWriteMinDepth*), so a
+        /// shallow first iteration would otherwise store a low-quality record. 0 disables
+        /// the floor (upstream behavior).
+        int minWriteDepth = 0;
         /// Mate node before this ply is required to write the database
         int mateWritePly = 2;
         /// How many depth needed to add a new record in exact Mate node

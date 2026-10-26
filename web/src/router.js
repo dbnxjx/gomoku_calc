@@ -22,7 +22,7 @@ export default new Router({
         import(/* webpackChunkName: "about" */ /* webpackPrefetch: true */ './views/About.vue'),
     },
     {
-      path: '/:pos?',
+      path: '/',
       name: 'game',
       component: Game,
     },

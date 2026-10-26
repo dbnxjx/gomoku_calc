@@ -77,6 +77,7 @@ public final class JniRapfiNativeBridge implements RapfiNativeBridge, RapfiJni.L
     @Override
     public void close() {
         jni.stopThinking();
+        jni.saveDatabase();   // persist cached analysis records before tearing down
         jni.close();
         analyzer = null;
         listener = null;

@@ -75,7 +75,6 @@ const state = {
   showHeatmap: true,
   showKillPoints: true,
   showVisitsPerSecond: true,
-  showAdvantageBar: true,
   aiThinkBlack: false,
   aiThinkWhite: false,
 }
@@ -111,7 +110,6 @@ const propertiesToSave = [
   'showHeatmap',
   'showKillPoints',
   'showVisitsPerSecond',
-  'showAdvantageBar',
   'aiThinkBlack',
   'aiThinkWhite',
 ]

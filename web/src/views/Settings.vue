@@ -16,6 +16,24 @@
     </group>
 
     <group v-if="engineType === 'RAPFI'">
+      <group-title slot="title">分析数据库</group-title>
+      <popup-radio title="使用方式" v-model="databaseModeValue" :options="databaseModeOptions" />
+      <cell title="当前数据库">
+        {{ databaseCurrent }}<span v-if="databaseRecordCount >= 0">（{{ databaseRecordCount }} 条）</span>
+      </cell>
+      <popup-radio title="切换数据库" v-model="databaseCurrentValue" :options="databaseOptions" />
+      <cell title="新建数据库">
+        <input v-model="newDatabaseName" type="text" maxlength="64" placeholder="名称" />
+        <x-button mini type="primary" :disabled="databaseBusy" @click.native="createDatabase">创建</x-button>
+      </cell>
+      <cell title="数据库文件">
+        <x-button mini :disabled="databaseBusy" @click.native="importDatabase">导入</x-button>
+        <x-button mini :disabled="databaseBusy" @click.native="exportDatabase">导出</x-button>
+        <x-button mini type="warn" :disabled="databaseBusy" @click.native="deleteDatabase">删除</x-button>
+      </cell>
+    </group>
+
+    <group v-if="engineType === 'RAPFI'">
       <group-title slot="title">{{ $t('setting.thinking.timeTitle') }}</group-title>
       <radio :options="thinkTimeOptions" v-model="thinkTimeSelected" />
       <div class="time-settings" v-if="thinkTimeSelected == 0">
@@ -68,7 +86,6 @@
       <x-switch :title="$t('setting.board.showForbid')" v-model="showForbidValue" />
       <x-switch :title="$t('setting.board.showKillPoints')" v-model="showKillPointsValue" />
       <x-switch :title="$t('setting.board.showVisitsPerSecond')" v-model="showVisitsPerSecondValue" />
-      <x-switch :title="$t('setting.board.showAdvantageBar')" v-model="showAdvantageBarValue" />
       <popup-radio :title="$t('setting.board.showPvEval.title')" v-model="showPvEvalValue"
         :options="showPvEvalOptions" />
     </group>
@@ -116,7 +133,10 @@
 
 <script>
 import { Group, GroupTitle, XSwitch, XNumber, XButton, Radio, PopupRadio, Cell, Box } from 'vux'
+import { registerPlugin } from '@capacitor/core'
 import { mapState, mapMutations, mapActions } from 'vuex'
+
+const NativeRapfi = registerPlugin('NativeRapfi')
 
 export default {
   name: 'settings',
@@ -134,6 +154,12 @@ export default {
   data: function () {
     return {
       showLanguageOption: false,
+      databaseMode: 'on',
+      databaseCurrent: 'default',
+      databaseNames: ['default'],
+      databaseRecordCount: -1,
+      newDatabaseName: '',
+      databaseBusy: false,
     }
   },
   computed: {
@@ -170,7 +196,6 @@ export default {
       'showHeatmap',
       'showKillPoints',
       'showVisitsPerSecond',
-      'showAdvantageBar',
       'kataGoMaxPoints',
       'boardStyle',
       'hashSize',
@@ -201,7 +226,7 @@ export default {
       ]
     },
     configIndexOptions() {
-      if (this.fullEngine) {
+      if (this.fullEngine || this.engineType === 'RAPFI') {
         return [
           { key: 0, value: this.$t('setting.thinking.config.mix9svq') },
           { key: 1, value: this.$t('setting.thinking.config.220723') },
@@ -326,6 +351,32 @@ export default {
       },
       set(v) {
         this.setValue({ key: 'kataGoMaxPoints', value: Math.max(1, Math.min(20, Number(v) || 1)) })
+      },
+    },
+    databaseModeOptions() {
+      return [
+        { key: 'on', value: '使用数据库' },
+        { key: 'readonly', value: '只读数据库' },
+        { key: 'off', value: '不使用数据库' },
+      ]
+    },
+    databaseOptions() {
+      return this.databaseNames.map((name) => ({ key: name, value: name }))
+    },
+    databaseModeValue: {
+      get() {
+        return this.databaseMode
+      },
+      set(value) {
+        this.setDatabaseMode(value)
+      },
+    },
+    databaseCurrentValue: {
+      get() {
+        return this.databaseCurrent
+      },
+      set(value) {
+        this.switchDatabase(value)
       },
     },
     threadsValue: {
@@ -506,14 +557,6 @@ export default {
         this.setValue({ key: 'showVisitsPerSecond', value: v })
       },
     },
-    showAdvantageBarValue: {
-      get() {
-        return this.showAdvantageBar
-      },
-      set(v) {
-        this.setValue({ key: 'showAdvantageBar', value: v })
-      },
-    },
     boardColor: {
       get() {
         return this.boardStyle.boardColor
@@ -567,12 +610,104 @@ export default {
     ...mapMutations('settings', ['setValue', 'setBoardStyle']),
     ...mapActions('settings', ['clearCookies']),
     ...mapActions('ai', ['checkForbid', 'runKataGoBenchmark']),
+    async refreshDatabaseStatus() {
+      if (this.engineType !== 'RAPFI' || !NativeRapfi.getDatabaseStatus) return
+      try {
+        const result = await NativeRapfi.getDatabaseStatus()
+        this.adoptDatabaseStatus(result)
+      } catch (error) {
+        // The native plugin may still be starting; the next engine-ready event can refresh it.
+      }
+    },
+    adoptDatabaseStatus(result) {
+      if (!result) return
+      if (result.mode) this.databaseMode = result.mode
+      if (result.current || result.name) this.databaseCurrent = result.current || result.name
+      if (Array.isArray(result.databases) && result.databases.length) this.databaseNames = result.databases
+      if (typeof result.recordCount === 'number') this.databaseRecordCount = result.recordCount
+    },
+    async setDatabaseMode(mode) {
+      if (this.databaseBusy) return
+      this.databaseBusy = true
+      try {
+        this.adoptDatabaseStatus(await NativeRapfi.setDatabaseMode({ mode }))
+      } catch (error) {
+        this.$vux.toast.text('数据库设置失败')
+      } finally {
+        this.databaseBusy = false
+      }
+    },
+    async switchDatabase(name) {
+      if (this.databaseBusy || !name) return
+      this.databaseBusy = true
+      try {
+        this.adoptDatabaseStatus(await NativeRapfi.switchDatabase({ name }))
+      } catch (error) {
+        this.$vux.toast.text('数据库切换失败')
+      } finally {
+        this.databaseBusy = false
+      }
+    },
+    async createDatabase() {
+      const name = (this.newDatabaseName || '').trim()
+      if (!name || this.databaseBusy) return
+      this.databaseBusy = true
+      try {
+        this.adoptDatabaseStatus(await NativeRapfi.createDatabase({ name }))
+        this.newDatabaseName = ''
+      } catch (error) {
+        this.$vux.toast.text('数据库创建失败')
+      } finally {
+        this.databaseBusy = false
+      }
+    },
+    async importDatabase() {
+      if (this.databaseBusy) return
+      this.databaseBusy = true
+      try {
+        this.adoptDatabaseStatus(await NativeRapfi.importDatabase())
+      } catch (error) {
+        this.$vux.toast.text('数据库导入失败')
+      } finally {
+        this.databaseBusy = false
+      }
+    },
+    async exportDatabase() {
+      if (this.databaseBusy) return
+      this.databaseBusy = true
+      try {
+        await NativeRapfi.exportDatabase({ name: this.databaseCurrent })
+      } catch (error) {
+        this.$vux.toast.text('数据库导出失败')
+      } finally {
+        this.databaseBusy = false
+      }
+    },
+    async deleteDatabase() {
+      if (this.databaseBusy || !this.databaseCurrent) return
+      if (!window.confirm(`删除数据库「${this.databaseCurrent}」？`)) return
+      this.databaseBusy = true
+      try {
+        this.adoptDatabaseStatus(await NativeRapfi.deleteDatabase({ name: this.databaseCurrent }))
+      } catch (error) {
+        this.$vux.toast.text('数据库删除失败')
+      } finally {
+        this.databaseBusy = false
+      }
+    },
     reset() {
       this.clearCookies()
       location.reload()
     },
   },
-  watch: {},
+  watch: {
+    engineType(value) {
+      if (value === 'RAPFI') this.refreshDatabaseStatus()
+    },
+  },
+  mounted() {
+    this.refreshDatabaseStatus()
+  },
 }
 </script>
 

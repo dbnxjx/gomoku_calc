@@ -44,14 +44,6 @@ const state = {
 }
 
 const getters = {
-  posStr: (state) => {
-    let posStrs = []
-    for (let p of state.position) {
-      posStrs.push(String.fromCharCode('a'.charCodeAt(0) + p[0]))
-      posStrs.push(state.size - p[1])
-    }
-    return posStrs.join('')
-  },
   get: (state) => {
     return (pos) => {
       switch (state.board[toIndex(pos, state.size)]) {
@@ -145,20 +137,6 @@ const mutations = {
 }
 
 const actions = {
-  setPosStr({ commit, dispatch, getters, state }, str) {
-    str = str.trim().toLowerCase()
-    let posArray = str.match(/([a-z])(\d+)/g)
-    if (getters.posStr == str) return
-
-    commit('new', state.size)
-    if (!posArray) return
-    for (let p of posArray) {
-      let x = p.match(/[a-z]/)[0].charCodeAt(0) - 'a'.charCodeAt(0)
-      let y = state.size - +p.match(/\d+/)[0]
-      dispatch('makeMove', [x, y])
-      if (state.winline.length > 0) break
-    }
-  },
   makeMove({ commit, dispatch, getters, rootGetters }, pos) {
     if (!getters.isEmpty(pos)) return false
     let checkOverline =
