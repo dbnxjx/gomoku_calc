@@ -413,7 +413,7 @@ const actions = {
     }
 
     if (engine.stopThinking()) {
-      commit('setReady', false)
+      // Native Rapfi stops the search while keeping its initialized session ready.
       commit('clearRealtime', 'best')
       commit('clearRealtime', 'lost')
       commit('addUsedTime')
