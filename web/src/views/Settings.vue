@@ -15,7 +15,7 @@
       <popup-radio :title="$t('setting.language')" v-model="languageValue" :options="languageOptions" />
     </group>
 
-    <group v-if="engineType === 'RAPFI'">
+    <group v-if="engineType === 'RAPFI'" key="rapfi-database">
       <group-title slot="title">分析数据库</group-title>
       <popup-radio title="使用方式" v-model="databaseModeValue" :options="databaseModeOptions" />
       <cell title="当前数据库" is-link @click.native="databasePickerOpen = true">
@@ -23,37 +23,7 @@
       </cell>
     </group>
 
-    <div v-transfer-dom>
-      <popup v-model="databasePickerOpen" position="bottom" height="auto">
-        <div class="database-picker">
-          <div v-for="name in databasePickerNames" :key="name" class="database-picker-row">
-            <button class="database-picker-name" @click="switchDatabase(name)">{{ name }}</button>
-            <div class="database-picker-actions">
-              <button class="database-export" @click="exportDatabase(name)">导出</button>
-              <button v-if="name !== databaseCurrent" class="database-delete" @click="deleteDatabase(name)">删除</button>
-            </div>
-            <span v-if="name === databaseCurrent" class="database-check">✓</span>
-          </div>
-          <div class="database-picker-action-row database-picker-first-action" @click="importDatabase">导入已有数据库</div>
-          <div class="database-picker-action-row" @click="openCreateDatabase">新建数据库</div>
-        </div>
-      </popup>
-    </div>
-
-    <div v-transfer-dom>
-      <x-dialog v-model="createDatabaseDialog" hide-on-blur>
-        <div class="database-create-dialog">
-          <div class="database-create-title">新建数据库</div>
-          <input ref="databaseNameInput" v-model="newDatabaseName" maxlength="64" autofocus placeholder="名称" />
-          <div class="database-create-buttons">
-            <button @click="createDatabaseDialog = false">取消</button>
-            <button class="database-confirm" @click="createDatabase">确定</button>
-          </div>
-        </div>
-      </x-dialog>
-    </div>
-
-    <group v-if="engineType === 'RAPFI'">
+    <group v-if="engineType === 'RAPFI'" key="rapfi-time">
       <group-title slot="title">{{ $t('setting.thinking.timeTitle') }}</group-title>
       <radio :options="thinkTimeOptions" v-model="thinkTimeSelected" />
       <div class="time-settings" v-if="thinkTimeSelected == 0">
@@ -68,7 +38,7 @@
       </div>
     </group>
 
-    <group v-if="engineType === 'RAPFI'">
+    <group v-if="engineType === 'RAPFI'" key="rapfi-board">
       <group-title slot="title">{{ $t('setting.board.title') }}</group-title>
       <x-number :title="$t('setting.board.size')" v-model="boardSizeValue" button-style="round" width="75px" :min="5"
         :max="22" fillable />
@@ -77,7 +47,7 @@
       <x-switch :title="$t('setting.board.aiThinkWhite')" v-model="aiThinkWhiteValue" />
     </group>
 
-    <group v-if="engineType === 'RAPFI'">
+    <group v-if="engineType === 'RAPFI'" key="rapfi-search">
       <group-title slot="title">{{ $t('setting.thinking.thinkTitle') }}</group-title>
       <x-number :title="$t('setting.thinking.nbest')" v-model="nbestValue" button-style="round" width="75px" :min="1"
         :max="boardSizeValue * boardSizeValue" fillable />
@@ -93,7 +63,7 @@
       <popup-radio :title="$t('setting.thinking.hashSize')" v-model="hashSizeValue" :options="hashSizeOptions" />
     </group>
 
-    <group v-if="engineType === 'RAPFI'">
+    <group v-if="engineType === 'RAPFI'" key="rapfi-display">
       <group-title slot="title">{{ $t('setting.board.showTitle') }}</group-title>
       <popup-radio :title="$t('setting.board.clickCheck.title')" v-model="clickCheckValue"
         :options="clickCheckOptions" />
@@ -110,7 +80,7 @@
         :options="showPvEvalOptions" />
     </group>
 
-    <group v-if="engineType === 'RAPFI'">
+    <group v-if="engineType === 'RAPFI'" key="rapfi-colors">
       <group-title slot="title">{{ $t('setting.board.colorTitle') }}</group-title>
       <cell :title="$t('setting.board.boardColor')">
         <input type="color" v-model="boardColor" />
@@ -132,7 +102,7 @@
       </cell>
     </group>
 
-    <group v-if="engineType === 'KATAGO'">
+    <group v-if="engineType === 'KATAGO'" key="katago-settings">
       <group-title slot="title">KataGo</group-title>
       <x-number title="显示候选点数" v-model="kataGoMaxPointsValue" button-style="round" width="75px" :min="1"
         :max="225" fillable />
@@ -148,6 +118,40 @@
     <box gap="40px 20px 20px 20px">
       <x-button type="warn" @click.native="reset">{{ $t('setting.reset') }}</x-button>
     </box>
+
+    <!-- Keep a real child here: transfer-dom moves its element to body, so it
+         cannot be an insertion anchor among the conditional settings groups. -->
+    <div key="database-dialogs">
+      <div v-transfer-dom>
+        <popup v-model="databasePickerOpen" position="bottom" height="auto">
+          <div class="database-picker">
+            <div v-for="name in databasePickerNames" :key="name" class="database-picker-row">
+              <button class="database-picker-name" @click="switchDatabase(name)">{{ name }}</button>
+              <div class="database-picker-actions">
+                <button class="database-export" @click="exportDatabase(name)">导出</button>
+                <button v-if="name !== databaseCurrent" class="database-delete" @click="deleteDatabase(name)">删除</button>
+              </div>
+              <span v-if="name === databaseCurrent" class="database-check">✓</span>
+            </div>
+            <div class="database-picker-action-row database-picker-first-action" @click="importDatabase">导入已有数据库</div>
+            <div class="database-picker-action-row" @click="openCreateDatabase">新建数据库</div>
+          </div>
+        </popup>
+      </div>
+
+      <div v-transfer-dom>
+        <x-dialog v-model="createDatabaseDialog" hide-on-blur>
+          <div class="database-create-dialog">
+            <div class="database-create-title">新建数据库</div>
+            <input ref="databaseNameInput" v-model="newDatabaseName" maxlength="64" autofocus placeholder="名称" />
+            <div class="database-create-buttons">
+              <button @click="createDatabaseDialog = false">取消</button>
+              <button class="database-confirm" @click="createDatabase">确定</button>
+            </div>
+          </div>
+        </x-dialog>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -547,7 +551,7 @@ export default {
         return this.engineType
       },
       set(v) {
-        this.setValue({ key: 'engineType', value: String(v).toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI' })
+        this.setValue({ key: 'engineType', value: v })
       },
     },
     showHeatmapValue: {

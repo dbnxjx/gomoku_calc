@@ -231,9 +231,6 @@ const actions = {
       saveCookies()
       return
     }
-    if (typeof stateToRead.engineType === 'string') {
-      stateToRead.engineType = stateToRead.engineType.toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
-    }
     if (stateToRead.rapfiThreads === undefined && stateToRead.threads !== undefined) {
       stateToRead.rapfiThreads = stateToRead.threads
     }

@@ -413,6 +413,7 @@ const actions = {
     }
 
     if (engine.stopThinking()) {
+      commit('setReady', false)
       commit('clearRealtime', 'best')
       commit('clearRealtime', 'lost')
       commit('addUsedTime')
