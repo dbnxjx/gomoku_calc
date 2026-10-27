@@ -108,14 +108,7 @@ export default {
       this.$i18n.locale = newValue
     },
     engineType(newValue, oldValue) {
-      if (!this.settingsLoaded || !oldValue || newValue === oldValue) return
-      // Let Settings.vue finish switching its engine-specific sections before KataGo startup
-      // begins producing native events and consuming memory/CPU.
-      this.$nextTick(() => {
-        window.setTimeout(() => {
-          if (this.engineType === newValue) this.initEngine(true)
-        }, 0)
-      })
+      if (this.settingsLoaded && oldValue && newValue !== oldValue) this.initEngine(true)
     },
   },
   created() {

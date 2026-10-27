@@ -1,8 +1,6 @@
 import * as engine from '@/ai/engine'
 import { RENJU, CONFIGS } from './settings'
 
-let lastKataGoDebugMessageAt = 0
-
 const state = {
   fullEngine: false,
   engineBackend: 'native-rapfi',
@@ -219,8 +217,6 @@ const actions = {
     if (selectedEngineType === 'RAPFI') commit('setNativeEngineAvailable', false)
     const callback = (r) => {
       const eventEngineType = r.engineType || selectedEngineType
-      const currentEngineType = String(rootState.settings.engineType || 'RAPFI').toUpperCase()
-      if (eventEngineType !== currentEngineType) return
       if (
         eventEngineType === 'KATAGO' &&
         r.analysisId !== undefined &&
@@ -230,14 +226,6 @@ const actions = {
         commit('setKataGoBenchmarking', r.benchmarking)
         if (r.benchmark) commit('addMessage', '[KATAGO] ' + r.benchmark)
       } else if (r.debug) {
-        // KataGo can emit debug lines for many candidate ranks per analysis interval. The
-        // message drawer is in the root WebView tree, so limit reactive log updates while
-        // leaving the engine's protocol and heatmap output untouched.
-        if (eventEngineType === 'KATAGO') {
-          const now = Date.now()
-          if (now - lastKataGoDebugMessageAt < 250) return
-          lastKataGoDebugMessageAt = now
-        }
         commit('addMessage', '[' + eventEngineType + '] ' + r.debug)
       } else if (r.heatmap) {
         const previousCount = state.outputs.heatmap.length
@@ -327,11 +315,6 @@ const actions = {
       }
     }
     const engineURL = await engine.init(callback, loadFullEngine, selectedEngineType)
-    if (!engineURL) return
-    // A newer settings change may have superseded this initialization while the native bridge
-    // was closing the previous session. Do not let the stale action mark the page ready again.
-    const currentEngineType = String(rootState.settings.engineType || 'rapfi').toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
-    if (currentEngineType !== selectedEngineType) return
     commit('setFullEngine', false)
     commit('addMessage', 'Selected engine: ' + selectedEngineType)
     commit('addMessage', 'Engine backend: ' + engineURL)

@@ -59,7 +59,7 @@ const state = {
   engineType: 'RAPFI', // 当前引擎：RAPFI / KATAGO
   strength: 100, // 棋力限制 (默认100%棋力)
   nbest: 1, // MultiPV多点分析
-  kataGoMaxPoints: 10, // KataGo UI最多显示的候选点数（底层始终分析全盘）
+  kataGoMaxPoints: 10, // KataGo 热力图最多显示的候选点数
   configIndex: 0, // 配置序号: [0, CONFIGS.length)
   candRange: 3, // 选点范围: {0, 1, 2, 3, 4, 5}
   hashSize: 128, // 置换表大小, 单位 MiB
@@ -160,8 +160,12 @@ function saveCookies() {
   for (let p of propertiesToSave) stateToSave[p] = state[p]
   for (let p of boardPropertiesToSave) stateToSave[p] = state.boardStyle[p]
   const serialized = JSON.stringify(stateToSave)
-  localStorage.setItem(versionedSettingsKey, serialized)
-  localStorage.setItem(SETTINGS_KEY, serialized)
+  try {
+    localStorage.setItem(versionedSettingsKey, serialized)
+    localStorage.setItem(SETTINGS_KEY, serialized)
+  } catch (error) {
+    // Settings remain usable for the current session when WebView storage is unavailable.
+  }
 }
 
 function applyValue(state, key, value) {
@@ -208,7 +212,6 @@ const actions = {
     try {
       json = localStorage.getItem(versionedSettingsKey) || localStorage.getItem(SETTINGS_KEY)
     } catch (error) {
-      saveCookies()
       return
     }
     if (!json) {
@@ -220,13 +223,12 @@ const actions = {
     try {
       stateToRead = JSON.parse(json)
     } catch (error) {
-      localStorage.removeItem(versionedSettingsKey)
-      localStorage.removeItem(SETTINGS_KEY)
+      try {
+        localStorage.removeItem(versionedSettingsKey)
+        localStorage.removeItem(SETTINGS_KEY)
+      } catch (storageError) { /* storage may be unavailable */ }
       saveCookies()
       return
-    }
-    if (typeof stateToRead.engineType === 'string') {
-      stateToRead.engineType = stateToRead.engineType.toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
     }
     if (stateToRead.rapfiThreads === undefined && stateToRead.threads !== undefined) {
       stateToRead.rapfiThreads = stateToRead.threads
@@ -242,13 +244,14 @@ const actions = {
         commit('setBoardStyleNoSave', { key: p, value: stateToRead[p] })
       }
     }
-    // Rewrite the normalized snapshot so newly introduced defaults and engine
-    // constraints are retained on the next launch.
+    // Rewrite the normalized snapshot but never restore engineType: startup must use Rapfi.
     saveCookies()
   },
   clearCookies() {
-    localStorage.removeItem(versionedSettingsKey)
-    localStorage.removeItem(SETTINGS_KEY)
+    try {
+      localStorage.removeItem(versionedSettingsKey)
+      localStorage.removeItem(SETTINGS_KEY)
+    } catch (error) { /* storage may be unavailable */ }
   },
 }
 
