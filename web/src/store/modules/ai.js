@@ -428,9 +428,8 @@ const actions = {
         if (state.posCallback) state.posCallback(pos)
       }
       commit('setRestart')
-      // Reset to initial state
-      commit('setCurrentConfig', null)
-      commit('setHashSize', null)
+      // Restart only the board session. Native Rapfi keeps its weights,
+      // database and hash allocation loaded after stopping a search.
       return true
     }
 
@@ -464,6 +463,9 @@ const actions = {
     if (String(rootState.settings.engineType || 'rapfi').toUpperCase() === 'KATAGO') return
     if (rootState.settings.configIndex == state.currentConfig) return
     commit('setCurrentConfig', rootState.settings.configIndex)
+    // A different config resets the searcher's memory limit; reapply the
+    // user's hash setting after this actual reload.
+    commit('setHashSize', null)
 
     engine.sendCommand('RELOADCONFIG ' + (CONFIGS[state.currentConfig] || ''))
   },

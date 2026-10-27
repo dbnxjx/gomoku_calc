@@ -288,6 +288,10 @@ public class NativeRapfiPlugin extends Plugin {
         }
         runWhenIdle(() -> {
             try {
+                if (name.equals(currentDatabase) && databaseAttached) {
+                    call.resolve(databaseStatusObject());
+                    return;
+                }
                 switchDatabaseInternal(name);
                 call.resolve(databaseStatusObject());
             } catch (Exception error) {
@@ -499,6 +503,10 @@ public class NativeRapfiPlugin extends Plugin {
             return;   // no bundled bundle: keep the built-in classical configuration
         String name = RapfiAssets.isKnownConfig(requestedName)
                 ? requestedName : RapfiAssets.CONFIG_NNUE;
+        // Initialization already applied the saved config. Reusing it keeps
+        // the evaluators and attached database alive, including on first think.
+        if (initialized && name.equals(weightName))
+            return;
         String path = RapfiAssets.configPath(getContext(), name);
         if (path == null)
             return;
