@@ -92,6 +92,7 @@ const propertiesToSave = [
   'rule',
   'threads',
   'rapfiThreads',
+  'engineType',
   'strength',
   'nbest',
   'kataGoMaxPoints',
@@ -230,6 +231,9 @@ const actions = {
       saveCookies()
       return
     }
+    if (typeof stateToRead.engineType === 'string') {
+      stateToRead.engineType = stateToRead.engineType.toUpperCase() === 'KATAGO' ? 'KATAGO' : 'RAPFI'
+    }
     if (stateToRead.rapfiThreads === undefined && stateToRead.threads !== undefined) {
       stateToRead.rapfiThreads = stateToRead.threads
     }
@@ -244,7 +248,7 @@ const actions = {
         commit('setBoardStyleNoSave', { key: p, value: stateToRead[p] })
       }
     }
-    // Rewrite the normalized snapshot but never restore engineType: startup must use Rapfi.
+    // Rewrite the normalized snapshot, including the selected engine.
     saveCookies()
   },
   clearCookies() {
