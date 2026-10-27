@@ -68,8 +68,6 @@ public class NativeRapfiPlugin extends Plugin {
     private static final String CMD_RELOADCONFIG = "RELOADCONFIG";
     /** Delay before flushing, so the engine has left its "thinking" state. */
     private static final long FLUSH_DELAY_MS = 300L;
-    /** Retry budget for deferring database commands until the engine is idle. */
-    private static final int IDLE_RETRIES = 40;
 
     /** Directory (under filesDir) holding all analysis databases. */
     private static final String DATABASE_DIR = "databases";
@@ -109,7 +107,11 @@ public class NativeRapfiPlugin extends Plugin {
 
     public NativeRapfiPlugin() {
         this.engine = new RapfiJni(this::onEngineLine);
-        this.flushDatabase = this.engine::saveDatabase;
+        this.flushDatabase = () -> commandQueue.execute(() -> {
+            // Do not race a new search or run native protocol work on the UI
+            // thread. A later completion (or app shutdown) will flush if busy.
+            if (initialized && !engine.isThinking()) engine.saveDatabase();
+        });
     }
 
     /** Runs on engine worker threads; must be cheap and thread-safe. */
@@ -235,6 +237,7 @@ public class NativeRapfiPlugin extends Plugin {
             engine.close();
         } finally {
             initialized = false;
+            mainHandler.removeCallbacks(flushDatabase);
             commandQueue.shutdownNow();
         }
     }
@@ -398,7 +401,7 @@ public class NativeRapfiPlugin extends Plugin {
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("application/octet-stream");
             intent.putExtra(Intent.EXTRA_TITLE, exportName + DATABASE_EXT);
-            startActivityForResult(call, intent, "exportDatabaseResult");
+            mainHandler.post(() -> startActivityForResult(call, intent, "exportDatabaseResult"));
         });
     }
 
@@ -515,21 +518,13 @@ public class NativeRapfiPlugin extends Plugin {
     }
 
     /**
-     * Defer an action until the engine has left its thinking state. The engine ignores
-     * database commands while searching, so switching/mode changes must wait.
+     * Serialize database changes with search commands. Stop and wait on the
+     * engine worker so no native wait or protocol operation blocks the UI thread.
      */
     private void runWhenIdle(Runnable action) {
-        runWhenIdle(IDLE_RETRIES, action);
-    }
-
-    private void runWhenIdle(int attemptsLeft, Runnable action) {
-        mainHandler.post(() -> {
-            if (!engine.isThinking() || attemptsLeft <= 0) {
-                action.run();
-                return;
-            }
+        commandQueue.execute(() -> {
             engine.stopThinking();
-            mainHandler.postDelayed(() -> runWhenIdle(attemptsLeft - 1, action), 100);
+            action.run();
         });
     }
 

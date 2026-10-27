@@ -58,9 +58,9 @@ int rapfi_init(const char *config_path, rapfi_output_callback cb, void *userdata
 void rapfi_send_command(const char *cmd);
 
 /**
- * Stop the current search immediately (equivalent to the "YXSTOP" command).
- * Non-blocking; the engine will emit the best move found so far through the
- * callback once the search threads wind down.
+ * Stop the current search and wait for its best-move callback and search
+ * threads to finish. Cancels automatic pondering for that search as well.
+ * Call on a worker thread; subsequent commands may safely start a new search.
  */
 void rapfi_stop_thinking(void);
 

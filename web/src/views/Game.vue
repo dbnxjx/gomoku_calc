@@ -607,7 +607,7 @@ export default {
                   if (this.isAITurn) this.startThink()
                 },
               })
-            } else if (this.gameRule == RENJU) {
+            } else if (this.engineType === 'RAPFI' && this.gameRule === RENJU && this.playerToMove === 'BLACK') {
               let isForbidPos = false
               for (let forbidPos of this.outputs.forbid) {
                 if (pos[0] == forbidPos[0] && pos[1] == forbidPos[1]) {

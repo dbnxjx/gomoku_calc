@@ -199,7 +199,7 @@ const mutations = {
 }
 
 const actions = {
-  async initEngine({ commit, dispatch, state, rootState }, loadFullEngine) {
+  async initEngine({ commit, dispatch, state, rootState, rootGetters }, loadFullEngine) {
     commit('setLoadingProgress', 0.0)
     commit('setReady', false)
     // A newly selected native engine owns a fresh protocol session. Force the
@@ -298,7 +298,9 @@ const actions = {
       } else if (r.swap) {
         commit('setOutput', { key: 'swap', value: r.swap })
       } else if (r.forbid) {
-        commit('setOutput', { key: 'forbid', value: r.forbid })
+        const appliesToCurrentPlayer = rootState.settings.engineType === 'RAPFI' &&
+          rootGetters['settings/gameRule'] === RENJU && rootGetters['position/playerToMove'] === 'BLACK'
+        commit('setOutput', { key: 'forbid', value: appliesToCurrentPlayer ? r.forbid : [] })
       } else if (r.error) {
         if (eventEngineType === 'RAPFI') commit('setNativeEngineAvailable', false)
         commit('setNativeAvailability', { engineType: eventEngineType, available: false })
@@ -475,9 +477,10 @@ const actions = {
   },
   checkForbid({ commit, state, dispatch, rootState, rootGetters }) {
     commit('setOutput', { key: 'forbid', value: [] })
-    if (!state.ready) return
+    if (!state.ready || state.thinking) return
 
-    if (rootGetters['settings/gameRule'] == RENJU && String(rootState.settings.engineType || 'rapfi').toUpperCase() !== 'KATAGO') {
+    if (rootGetters['settings/gameRule'] === RENJU && rootState.settings.engineType === 'RAPFI' &&
+      rootGetters['position/playerToMove'] === 'BLACK') {
       dispatch('sendInfo')
       if (state.restart || state.startSize != rootState.position.size) {
         engine.sendCommand('START ' + rootState.position.size)

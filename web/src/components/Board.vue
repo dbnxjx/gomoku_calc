@@ -14,6 +14,7 @@
 <script>
 import { throttle, debounce } from 'throttle-debounce'
 import { mapState, mapGetters } from 'vuex'
+import { RENJU } from '@/store/modules/settings'
 
 const paddingTop = 10,
   paddingBottom = 26
@@ -465,7 +466,8 @@ export default {
       )) return []
       return this.$store.state.ai.outputs.heatmap
     },
-    ...mapGetters('position', ['isInBoard']),
+    ...mapGetters('position', ['isInBoard', 'playerToMove']),
+    ...mapGetters('settings', ['gameRule']),
     context() {
       return (idx) => {
         return this.$refs['canvas' + idx].getContext('2d')
@@ -560,7 +562,8 @@ export default {
       ctx.scale(this.renderRatio, this.renderRatio)
       if (!noclear) ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight)
 
-      if (this.showForbid && !this.thinking && !this.previewPv) {
+      if (this.engineType === 'RAPFI' && this.gameRule === RENJU && this.playerToMove === 'BLACK' &&
+        this.showForbid && !this.thinking && !this.previewPv) {
         drawForbid(ctx, this.boardStyle, cellSize, this.forbid)
       }
 
@@ -739,6 +742,7 @@ export default {
     position: {
       handler() {
         this.drawPieceLayer()
+        this.drawRealtimeLayer()
       },
       deep: true,
     },

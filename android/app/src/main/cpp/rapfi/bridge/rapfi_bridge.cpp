@@ -34,6 +34,7 @@ namespace Command {
 namespace GomocupProtocol {
 extern std::atomic_bool thinking;
 bool runProtocol();
+void stopThinkingAndWait();
 }  // namespace GomocupProtocol
 }  // namespace Command
 
@@ -47,6 +48,14 @@ namespace {
 class QueueInputStreambuf : public std::streambuf
 {
 public:
+    void reset()
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        queue_.clear();
+        buf_.clear();
+        pos_ = 0;
+    }
+
     void push(const std::string &s)
     {
         std::lock_guard<std::mutex> lk(mtx_);
@@ -221,14 +230,22 @@ void rapfi_send_command(const char *cmd)
 
     std::lock_guard<std::mutex> lk(g_commandMutex);
 
+    // runProtocol ignores commands while thinking and consumes only their first
+    // token. Finish the old search (including its best-move callback) before
+    // handing it a new command, without holding the protocol's own mutex.
+    Command::GomocupProtocol::stopThinkingAndWait();
+    g_inBuf->reset();
     g_inBuf->push(std::string(cmd) + "\n");
     std::cin.clear();  // reset any EOF/error state left by a previous command
     Command::GomocupProtocol::runProtocol();
+    // Each bridge call owns its entire command, even if parsing stops early.
+    g_inBuf->reset();
 }
 
 void rapfi_stop_thinking(void)
 {
-    Search::Engine.stopThinking();
+    std::lock_guard<std::mutex> lk(g_commandMutex);
+    Command::GomocupProtocol::stopThinkingAndWait();
 }
 
 int rapfi_is_thinking(void)

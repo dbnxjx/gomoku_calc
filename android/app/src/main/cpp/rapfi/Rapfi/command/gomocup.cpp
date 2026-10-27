@@ -62,6 +62,22 @@ Search::SearchOptions         options;
 bool                          GUIMode   = false;
 std::atomic_bool              thinking  = false;
 std::optional<CandidateRange> candRange = std::nullopt;
+// Protected by protocolMutex. An embedding host may stop between searches and
+// must also cancel the completion callback's automatic pondering restart.
+bool                          ponderingCancelled = false;
+
+void stopThinkingAndWait()
+{
+    {
+#ifdef MULTI_THREADING
+        std::lock_guard<std::mutex> lock(protocolMutex);
+#endif
+        ponderingCancelled = true;
+        Search::Engine.stopThinking();
+    }
+    // The completion callback needs protocolMutex; never hold it while waiting.
+    Search::Engine.waitForIdle();
+}
 
 void sendActionAndUpdateBoard(ActionType action, Pos bestMove)
 {
@@ -117,6 +133,7 @@ void think(Board                             &board,
     if (Config::GeneralCfg.reloadConfigEachMove)
         loadConfig();
 
+    ponderingCancelled = false;
     thinking = true;
     Search::Engine.startThinking(board, options, false, [&, startTime = now()]() {
         {
@@ -134,9 +151,15 @@ void think(Board                             &board,
         if (options.timeLimit && options.matchTime > 0)
             options.timeLeft = std::max(options.timeLeft - usedTime, (Time)0);
 
-        // Start pondering search if needed
-        if (Search::Engine.ctx.startPonderAfterThinking)
-            Search::Engine.startThinking(board, options, true);
+        // Serialize this decision with an embedding host's stop request so that
+        // a finishing search cannot start a new ponder after it was stopped.
+        {
+#ifdef MULTI_THREADING
+            std::lock_guard<std::mutex> lock(protocolMutex);
+#endif
+            if (!ponderingCancelled && Search::Engine.ctx.startPonderAfterThinking)
+                Search::Engine.startThinking(board, options, true);
+        }
     });
 }
 

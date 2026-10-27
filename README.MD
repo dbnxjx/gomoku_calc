@@ -74,6 +74,7 @@ android/capacitor-filesystem/
 引擎相关的页面显示按引擎隔离：
 
 - 选择 Rapfi 时保留原有方格分析、估值/胜率、杀点、禁手和 Rapfi 设置。
+- Rapfi 的禁手请求、绘制和落子拦截仅适用于连珠规则的黑方回合；白方回合清空禁手显示，计算过程中不发送禁手查询。
 - 选择 KataGo 时隐藏 Rapfi 的思考、线程、权重、杀点和颜色设置，只保留候选点数量和热力图开关。
 - KataGo 热力图实时显示候选圆点；每个点显示胜率、visits 和候选序号，第一候选点使用蓝色，其余使用绿色。
 - 点击计算会持续接收 KataGo 流式结果；落子、悔棋或切换棋树局面会先更新引擎局面，再按当前暂停状态继续或停止分析。
@@ -110,6 +111,8 @@ addListener("exit", listener)
 事件数据可以放在 `data`、`output` 或 `value` 字段。页面当前解析的 Rapfi 输出包括：`OK`、`SWAP`、`x,y`、`INFO PV`、`NUMPV`、`DEPTH`、`SELDEPTH`、`NODES`、`TOTALNODES`、`TOTALTIME`、`SPEED/VISITS`、`BLACK_WINRATE`、`EVAL`、`WINRATE`、`BESTLINE`、`FORBID` 和 `ERROR`。常用输入命令包括 `INFO ...`、`START size`、`BOARD/YXBOARD ... DONE`、`YXNBEST` 和 `YXSHOWFORBID`。
 
 原生 Capacitor 插件必须叫 `NativeRapfi`，并注册到 Capacitor plugin registry；当前 `capacitor.plugins.json` 已注册 Filesystem、`NativeRapfi` 和 `NativeKataGo`。插件注册和生成配置应通过正式的 Capacitor 同步流程完成；不要只修改 Java bridge 而假设页面会自动发现它。
+
+Rapfi 的暂停保持引擎就绪。原生桥接在工作线程等待旧搜索及其结果回调结束，再处理下一条完整命令，并清理该命令未消费的输入；等待时不能持有搜索回调需要的协议锁。停止也会取消该搜索的自动后台思考，避免刚停止又被回调启动。数据库自动保存使用相同的命令队列，忙时留到后续搜索完成或退出时保存。
 
 ## 接入 KataGo
 

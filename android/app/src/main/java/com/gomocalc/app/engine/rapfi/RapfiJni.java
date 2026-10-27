@@ -153,7 +153,7 @@ public final class RapfiJni implements AutoCloseable {
             nativeSendCommand(command);
     }
 
-    /** Stop the current search (equivalent to the {@code YXSTOP} command). */
+    /** Stop the current search and wait for completion. Call on an engine worker. */
     public void stopThinking() {
         nativeStopThinking();
     }
