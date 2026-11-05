@@ -54,7 +54,10 @@
 
 <script>
 import { ViewBox, XHeader, Tabbar, TabbarItem, Drawer } from 'vux'
+import { registerPlugin } from '@capacitor/core'
 import { mapState, mapMutations, mapActions } from 'vuex'
+
+const AppOrientation = registerPlugin('AppOrientation')
 
 export default {
   components: {
@@ -73,7 +76,7 @@ export default {
     }
   },
   computed: {
-    ...mapState('settings', ['language', 'configIndex', 'engineType']),
+    ...mapState('settings', ['language', 'layoutMode', 'configIndex', 'engineType']),
     ...mapState('ai', ['messages']),
     route() {
       return this.$route
@@ -93,6 +96,10 @@ export default {
         if (drawer) drawer.scrollTop = drawer.scrollHeight
       })
     },
+    applyLayoutOrientation() {
+      // A plain browser has no such plugin; the layout still follows the setting there.
+      Promise.resolve(AppOrientation.setOrientation({ mode: this.layoutMode })).catch(() => {})
+    },
   },
   watch: {
     messages: {
@@ -107,6 +114,9 @@ export default {
     language(newValue) {
       this.$i18n.locale = newValue
     },
+    layoutMode() {
+      this.applyLayoutOrientation()
+    },
     engineType(newValue, oldValue) {
       if (this.settingsLoaded && oldValue && newValue !== oldValue) this.initEngine(true)
     },
@@ -119,6 +129,7 @@ export default {
     } else {
       this.$i18n.locale = this.language
     }
+    this.applyLayoutOrientation()
     this.$nextTick(() => { this.settingsLoaded = true })
   },
   mounted() {

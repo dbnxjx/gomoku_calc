@@ -10,5 +10,9 @@
 	{
 		"pkg": "native-katago",
 		"classpath": "com.gomocalc.app.engine.katago.NativeKataGoPlugin"
+	},
+	{
+		"pkg": "app-orientation",
+		"classpath": "com.gomocalc.app.AppOrientationPlugin"
 	}
 ]

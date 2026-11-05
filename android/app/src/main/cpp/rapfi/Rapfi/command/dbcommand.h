@@ -79,6 +79,7 @@ void libToDatabase(DBCommandContext &ctx);
 void databaseToLib(DBCommandContext &ctx);
 void getDatabasePosition(DBCommandContext &ctx);
 void queryDatabaseAll(DBCommandContext &ctx, bool getPosition);
+void queryDatabaseMates(DBCommandContext &ctx);
 void queryDatabaseOne(DBCommandContext &ctx, bool getPosition);
 void queryDatabaseText(DBCommandContext &ctx, bool getPosition);
 void editDatabaseTVD(DBCommandContext &ctx);

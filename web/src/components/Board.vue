@@ -5,8 +5,6 @@
       <canvas id="piece" ref="canvasPiece" :width="renderWidth" :height="renderHeight"></canvas>
       <canvas id="realtime" ref="canvasRealtime" class="needsclick" :width="renderWidth" :height="renderHeight"
         @contextmenu.prevent @mousedown="onMouseDown" @touchstart="onMouseDown"></canvas>
-      <canvas id="shot" ref="canvasJpg" :width="2048" :height="(2048 * canvasHeight) / canvasWidth"></canvas>
-      <canvas id="shot" ref="canvasGif" :width="1024" :height="(1024 * canvasHeight) / canvasWidth"></canvas>
     </div>
   </div>
 </template>
@@ -199,22 +197,6 @@ function drawLastStep(ctx, style, cs, position, end) {
   ctx.scale(cs, cs)
   let pos = position[end - 1]
   fillCircle(ctx, pos[0], pos[1], style.lastStepScale)
-  ctx.restore()
-}
-
-function drawWinline(ctx, style, cs, winline) {
-  ctx.save()
-  ctx.lineCap = 'round'
-  ctx.strokeStyle = style.winlineColor
-  ctx.lineWidth = style.winlineWidth
-  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
-  ctx.scale(cs, cs)
-
-  ctx.beginPath()
-  ctx.moveTo(winline[0][0], winline[0][1])
-  ctx.lineTo(winline[1][0], winline[1][1])
-  ctx.stroke()
-
   ctx.restore()
 }
 
@@ -426,8 +408,6 @@ export default {
       selectedCoord: [0, 0],
       pressed: false,
       cancelMouse: false,
-      ratioOverride: null,
-      end: Infinity,
     }
   },
   computed: {
@@ -438,14 +418,9 @@ export default {
     }),
     ...mapState('settings', [
       'boardStyle',
-      'indexOrigin',
       'showCoord',
-      'showDetail',
       'showPvEval',
-      'showWinrate',
       'showIndex',
-      'showLastStep',
-      'showWinline',
       'showForbid',
       'showKillPoints',
       'showHeatmap',
@@ -490,7 +465,7 @@ export default {
     },
     renderRatio() {
       // 屏幕的设备像素比(解决高DPI屏模糊问题)
-      return this.ratioOverride || window.devicePixelRatio || 1
+      return window.devicePixelRatio || 1
     },
     renderWidth() {
       return this.canvasWidth * this.renderRatio
@@ -533,24 +508,13 @@ export default {
           previewPosition,
           Infinity,
           this.previewPv.position.length,
-          this.showLastStep
+          true
         )
       } else {
-        drawPiece(ctx, this.boardStyle, cellSize, this.position, this.end)
-        if (this.showWinline && this.winline.length > 0 && this.end >= this.position.length)
-          drawWinline(ctx, this.boardStyle, cellSize, this.winline)
+        drawPiece(ctx, this.boardStyle, cellSize, this.position, Infinity)
         if (this.showIndex)
-          drawIndex(
-            ctx,
-            this.boardStyle,
-            cellSize,
-            this.position,
-            this.end,
-            this.indexOrigin,
-            this.showLastStep
-          )
-        else if (this.showLastStep)
-          drawLastStep(ctx, this.boardStyle, cellSize, this.position, this.end)
+          drawIndex(ctx, this.boardStyle, cellSize, this.position, Infinity, 0, true)
+        else drawLastStep(ctx, this.boardStyle, cellSize, this.position, Infinity)
       }
 
       ctx.restore()
@@ -573,7 +537,7 @@ export default {
 
       if (this.selecting) drawSelection(ctx, this.boardStyle, cellSize, this.selectedCoord)
       else if (!this.previewPv) {
-        if (this.showDetail) drawRealtime(ctx, this.boardStyle, cellSize, this.realtime)
+        drawRealtime(ctx, this.boardStyle, cellSize, this.realtime)
         if (this.engineType === 'RAPFI' && this.showPvEval > 0 && this.pv.length > 0 && this.thinking)
           drawPvEval(ctx, this.showPvEval, this.boardStyle, cellSize, this.pv)
       }
@@ -595,48 +559,6 @@ export default {
       this.drawBoardLayer(ctx, noclear)
       this.drawPieceLayer(ctx, noclear)
       this.drawRealtimeLayer(ctx, noclear)
-    },
-    screenshot() {
-      this.ratioOverride = 2048 / this.canvasWidth
-      let ctx = this.context('Jpg')
-      ctx.save()
-      ctx.scale(this.renderRatio, this.renderRatio)
-      ctx.fillStyle = '#FFFFFF'
-      ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
-      ctx.restore()
-
-      this.redrawAllLayers(ctx, true)
-      this.ratioOverride = null
-      return ctx.canvas.toDataURL('image/jpeg')
-    },
-    exportGIF(startIndex, delay, callback) {
-      let ctx = this.context('Gif')
-      this.ratioOverride = ctx.canvas.width / this.canvasWidth
-      // eslint-disable-next-line
-      let gif = new GIF({
-        workers: 8,
-        quality: 2,
-        width: ctx.canvas.width,
-        height: ctx.canvas.height,
-        workerScript: process.env.BASE_URL + 'lib/gif.worker.js',
-      })
-
-      for (this.end = startIndex; this.end <= this.position.length; this.end++) {
-        ctx.save()
-        ctx.fillStyle = '#FFFFFF'
-        ctx.scale(this.renderRatio, this.renderRatio)
-        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
-        ctx.restore()
-        this.drawBoardLayer(ctx, true)
-        this.drawPieceLayer(ctx, true)
-        gif.addFrame(ctx, { copy: true, delay: (this.end == this.position.length ? 3 : 1) * delay })
-      }
-
-      this.end = Infinity
-      this.ratioOverride = null
-
-      gif.on('finished', callback)
-      gif.render()
     },
     onMouseDown(event) {
       if (this.clickCheck == 2) {
@@ -736,6 +658,9 @@ export default {
     '$store.state.screenHeight': function () {
       this.debouncedRedrawAllLayers()
     },
+    canvasWidth() {
+      this.debouncedRedrawAllLayers()
+    },
     boardSize() {
       this.debouncedRedrawAllLayers()
     },
@@ -748,7 +673,7 @@ export default {
     },
     realtime: {
       handler() {
-        if (this.showDetail) this.throttledDrawRealtimeLayer()
+        this.throttledDrawRealtimeLayer()
       },
       deep: true,
     },
@@ -777,25 +702,13 @@ export default {
     thinking() {
       this.drawRealtimeLayer()
     },
-    indexOrigin() {
-      this.drawPieceLayer()
-    },
     showCoord() {
       this.drawBoardLayer()
-    },
-    showDetail() {
-      this.drawRealtimeLayer()
     },
     showPvEval() {
       this.drawRealtimeLayer()
     },
     showIndex() {
-      this.drawPieceLayer()
-    },
-    showLastStep() {
-      this.drawPieceLayer()
-    },
-    showWinline() {
       this.drawPieceLayer()
     },
     showForbid() {
@@ -862,10 +775,5 @@ canvas {
 
 #realtime {
   z-index: 3;
-}
-
-#shot {
-  z-index: -1;
-  display: none;
 }
 </style>

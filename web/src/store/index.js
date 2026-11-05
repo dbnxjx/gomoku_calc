@@ -4,6 +4,7 @@ import ai from './modules/ai'
 import position from './modules/position'
 import settings from './modules/settings'
 import moveTree from './modules/moveTree'
+import { LAYOUT_LANDSCAPE, LAYOUT_PORTRAIT } from './modules/settings'
 
 Vue.use(Vuex)
 
@@ -27,15 +28,16 @@ export default new Vuex.Store({
     supportRelaxedSimd: false,
   },
   getters: {
-    boardCanvasWidth(state) {
+    landscapeLayout(state) {
+      if (state.settings.layoutMode === LAYOUT_LANDSCAPE) return true
+      if (state.settings.layoutMode === LAYOUT_PORTRAIT) return false
+      return state.screenWidth > state.screenHeight
+    },
+    boardCanvasWidth(state, getters) {
       const MinBoardWidth = 300
       const BottomPadding = 200
-      if (state.screenWidth >= 1024 && state.screenWidth / state.screenHeight >= 4 / 3) {
-        return Math.max(
-          Math.min(state.screenWidth / 2 - 40, state.screenHeight - 80),
-          MinBoardWidth
-        )
-      }
+      // The board always fills exactly the left half; the page scrolls if it is too tall.
+      if (getters.landscapeLayout) return Math.floor(state.screenWidth / 2)
       return Math.max(
         Math.min(state.screenWidth, state.screenHeight - BottomPadding),
         MinBoardWidth

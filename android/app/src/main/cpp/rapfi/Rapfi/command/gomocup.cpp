@@ -835,6 +835,7 @@ bool runProtocol()
      && cmd != "YXSHOWFORBID"
      && cmd != "YXBLOCKRESET"
      && cmd != "YXQUERYDATABASEALL"
+     && cmd != "YXQUERYDATABASEMATES"
      && cmd != "YXQUERYDATABASEONE"
      && cmd != "YXQUERYDATABASETEXT"
      && cmd != "YXQUERYDATABASEALLT")      Search::Engine.stopThinking();
@@ -872,6 +873,7 @@ bool runProtocol()
     else if (cmd == "YXBALANCEONE")        CheckBoardOK([] { balance(Search::SearchOptions::BALANCE_ONE); });
     else if (cmd == "YXBALANCETWO")        CheckBoardOK([] { balance(Search::SearchOptions::BALANCE_TWO); });
     else if (cmd == "YXQUERYDATABASEALL")  CheckBoardOK([] { auto ctx = dbCommandContext(); queryDatabaseAll(ctx, true); });
+    else if (cmd == "YXQUERYDATABASEMATES") CheckBoardOK([] { auto ctx = dbCommandContext(); queryDatabaseMates(ctx); });
     else if (cmd == "YXQUERYDATABASEONE")  CheckBoardOK([] { auto ctx = dbCommandContext(); queryDatabaseOne(ctx, true); });
     else if (cmd == "YXQUERYDATABASETEXT") CheckBoardOK([] { auto ctx = dbCommandContext(); queryDatabaseText(ctx, true); });
     else if (cmd == "YXQUERYDATABASEALLT") CheckBoardOK([] { auto ctx = dbCommandContext(); queryDatabaseAll(ctx, true); queryDatabaseText(ctx, false); });

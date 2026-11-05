@@ -70,6 +70,13 @@ void rapfi_stop_thinking(void);
 int rapfi_is_thinking(void);
 
 /**
+ * @return the number of records in the attached analysis database, or -1 when
+ *         none is attached. Does not interrupt a running search, unlike
+ *         rapfi_send_command().
+ */
+long long rapfi_database_size(void);
+
+/**
  * Terminate the engine: stop any search, wait for all search threads to exit
  * and destroy them. May be called more than once; safe to call from any thread.
  */

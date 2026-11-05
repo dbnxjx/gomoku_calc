@@ -38,13 +38,6 @@
       "title": "禁手",
       "msg": "該位置為禁手。"
     },
-    "shotJpg": "靜態截圖",
-    "shotGif": "GIF 截圖",
-    "gifDelay": "輸入每幀時長（單位：毫秒）",
-    "gifStart": "輸入起始序號",
-    "gifLoading": "生成 GIF 中...",
-    "saveScreenshot": "保存截圖到本地",
-    "saveScreenshotIOS": "長按圖片保存到本地",
     "currentPos": "局面代碼",
     "evalChart": "評估曲線",
     "black": "黑棋",
@@ -55,14 +48,18 @@
   },
   "setting": {
     "language": "語言",
+    "layout": {
+      "title": "版面配置",
+      "landscape": "橫屏",
+      "portrait": "豎屏",
+      "auto": "自動調整"
+    },
     "thinking": {
       "timeTitle": "思考時間",
       "turnTime": "每步時間（秒）",
       "matchTime": "局時（秒）",
       "maxDepth": "最大深度",
       "maxNode": "最大節點數（M）",
-      "fast": "快棋（一局約 3 分鐘）",
-      "slow": "慢棋（一局約 15 分鐘）",
       "analysis": "分析模式（不限時）",
       "custom": "自訂",
       "handicap": "棋力限制",
@@ -108,10 +105,7 @@
       "showTitle": "棋盤顯示",
       "showCoord": "顯示座標",
       "showAnalysis": "顯示分析",
-      "showDetail": "顯示思考細節",
-      "showIndex": "顯示序號",
-      "showLastStep": "高亮最後一步",
-      "showWinline": "顯示勝利線",
+      "showMoveTree": "顯示落子樹",
       "showForbid": "顯示禁手",
       "showPvEval": {
         "title": "顯示分析估值",
@@ -122,7 +116,6 @@
       "colorTitle": "顏色",
       "boardColor": "棋盤顏色",
       "lastStepColor": "最後一步顏色",
-      "winlineColor": "勝利線顏色",
       "bestMoveColor": "分析 - 最佳着法",
       "thoughtMoveColor": "分析 - 已搜索着法",
       "lostMoveColor": "分析 - 必敗着法"

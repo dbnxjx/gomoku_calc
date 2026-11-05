@@ -28,6 +28,7 @@
 #include "../search/searchcommon.h"
 
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -252,6 +253,40 @@ void queryDatabaseAll(DBCommandContext &ctx, bool getPosition)
                 dbClient.save(*ctx.board, ctx.options.rule, DBRecord {LABEL_NONE}, OverwriteRule::Disabled);
         }
     }
+}
+
+void queryDatabaseMates(DBCommandContext &ctx)
+{
+    using namespace ::Database;
+    getDatabasePosition(ctx);
+
+    // Read only: unlike queryDatabaseAll, this must not add records just because
+    // a position was viewed, so that browsing never changes the database.
+    if (ctx.storage) {
+        DBClient dbClient(*ctx.storage, RECORD_MASK_LVDB);
+        for (const auto &[pos, record] : dbClient.queryChildren(*ctx.board, ctx.options.rule)) {
+            // A child record is stored from the opponent's side: LABEL_WIN there
+            // is a win for the player choosing the move on the current board.
+            if (record.label != LABEL_WIN && record.label != LABEL_LOSE)
+                continue;
+
+            const int magnitude = std::abs(int(record.value));
+            auto [cx, cy]       = outputCoordConvert(pos, ctx.board->size(), Config::GeneralCfg.ioCoordMode);
+
+            std::ostringstream text;
+            text << (record.label == LABEL_WIN ? "+M" : "-M");
+            // The stored distance is counted from the child, so playing the move adds one ply.
+            if (magnitude > VALUE_MATE_IN_MAX_PLY && magnitude <= VALUE_MATE)
+                text << int(VALUE_MATE) - magnitude + 1;
+            else
+                text << '*';
+
+            MESSAGEL("DATABASE MATE " << cx << ' ' << cy << ' ' << text.str());
+        }
+    }
+
+    // Always terminate the reply, also when no database is attached.
+    MESSAGEL("DATABASE MATE DONE");
 }
 
 void queryDatabaseOne(DBCommandContext &ctx, bool getPosition)

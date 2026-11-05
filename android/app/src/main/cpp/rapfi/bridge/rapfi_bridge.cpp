@@ -16,6 +16,7 @@
 #include "rapfi_bridge.h"
 
 #include "../Rapfi/command/command.h"
+#include "../Rapfi/database/dbstorage.h"
 #include "../Rapfi/search/searchthread.h"
 #include "../Rapfi/tuning/tunemap.h"
 
@@ -251,6 +252,17 @@ void rapfi_stop_thinking(void)
 int rapfi_is_thinking(void)
 {
     return Command::GomocupProtocol::thinking.load(std::memory_order_relaxed);
+}
+
+long long rapfi_database_size(void)
+{
+    if (!g_initialized)
+        return -1;
+
+    // The storage is only replaced by protocol commands, which hold this mutex.
+    std::lock_guard<std::mutex> lk(g_commandMutex);
+    Database::DBStorage        *storage = Search::Engine.dbStorage();
+    return storage ? static_cast<long long>(storage->size()) : -1;
 }
 
 void rapfi_terminate(void)

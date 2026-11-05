@@ -44,13 +44,6 @@
       "title": "Forbid",
       "msg": "This move is forbidden."
     },
-    "shotJpg": "Take ScreenShot as JPG",
-    "shotGif": "Take ScreenShot as GIF",
-    "gifDelay": "Enter the delay(ms) of each frame",
-    "gifStart": "Enter the start index",
-    "gifLoading": "Gif is generating...",
-    "saveScreenshot": "Save screenshot to device",
-    "saveScreenshotIOS": "Long press to save screenshot",
     "currentPos": "Position",
     "evalChart": "Evaluation Chart",
     "black": "BLACK",
@@ -61,14 +54,18 @@
   },
   "setting": {
     "language": "Language",
+    "layout": {
+      "title": "Layout",
+      "landscape": "Landscape",
+      "portrait": "Portrait",
+      "auto": "Auto"
+    },
     "thinking": {
       "timeTitle": "Thinking Time",
       "turnTime": "Turn time(s)",
       "matchTime": "Match time(s)",
       "maxDepth": "Max Depth",
       "maxNode": "Max Node(M)",
-      "fast": "Fast game(~3 min)",
-      "slow": "Slow game(~15 min)",
       "analysis": "Analysis(Unlimited Time)",
       "custom": "Custom",
       "handicap": "Handicap",
@@ -115,14 +112,10 @@
       "showTitle": "Board Display",
       "showCoord": "Show Coord",
       "showAnalysis": "Show Analysis",
-      "showDetail": "Show Detail",
-      "showIndex": "Show Index",
-      "showLastStep": "Highlight Last Step",
-      "showWinline": "Show Winning Line",
+      "showMoveTree": "Show Move Tree",
         "showForbid": "Show Forbid",
         "showHeatmap": "Show Heatmap",
         "showKillPoints": "Show Kill Points",
-        "showVisitsPerSecond": "Show Visits/s",
       "showPvEval": {
         "title": "Show PV Evaluation",
         "none": "Disable",
@@ -132,7 +125,6 @@
       "colorTitle": "Color Scheme",
       "boardColor": "Board Color",
       "lastStepColor": "Last Step Color",
-      "winlineColor": "Winning Line Color",
       "bestMoveColor": "Analysis - Best Move",
       "thoughtMoveColor": "Analysis - Searched Move",
       "lostMoveColor": "Analysis - Lost Move"

@@ -247,7 +247,7 @@ public class NativeRapfiPlugin extends Plugin {
     /** List every analysis database plus the current mode/selection. */
     @PluginMethod
     public void listDatabases(PluginCall call) {
-        call.resolve(databaseStatusObject());
+        commandQueue.execute(() -> call.resolve(databaseStatusObject()));
     }
 
     /**
@@ -373,10 +373,38 @@ public class NativeRapfiPlugin extends Plugin {
         });
     }
 
-    /** Report mode, current database and cached record count. */
+    /** Rename an analysis database and its backups, keeping it selected if it is the current one. */
+    @PluginMethod
+    public void renameDatabase(PluginCall call) {
+        String name = sanitizeName(call.getString("name"));
+        String newName = sanitizeName(call.getString("newName"));
+        if (name == null || newName == null || isBackupName(newName)) {
+            call.reject("数据库名称无效（不能为空、不能含 . / \\ 等字符）");
+            return;
+        }
+        runWhenIdle(() -> {
+            try {
+                if (!name.equals(newName)) {
+                    for (String existing : listDatabaseNames()) {
+                        if (!existing.equals(name) && existing.equalsIgnoreCase(newName)) {
+                            call.reject("已有同名数据库");
+                            return;
+                        }
+                    }
+                    renameDatabaseInternal(name, newName);
+                }
+                call.resolve(databaseStatusObject());
+            } catch (Exception error) {
+                call.reject("Unable to rename database: " + error.getMessage(), error);
+            }
+        });
+    }
+
+    /** Report mode, current database and live record count. */
     @PluginMethod
     public void getDatabaseStatus(PluginCall call) {
-        call.resolve(databaseStatusObject());
+        // The queue only runs brief protocol calls, and reading the count does not stop a search.
+        commandQueue.execute(() -> call.resolve(databaseStatusObject()));
     }
 
     /** Diagnostic: report the bundled engine assets and the evaluator actually in use. */
@@ -565,6 +593,54 @@ public class NativeRapfiPlugin extends Plugin {
         persistPreferences();
     }
 
+    private void renameDatabaseInternal(String name, String newName) throws IOException {
+        boolean wasCurrent = name.equals(currentDatabase);
+        // Detach first: the engine's flush re-creates a missing file under the old name.
+        if (wasCurrent && databaseAttached) {
+            engine.setDatabaseEnabled(false);
+            databaseAttached = false;
+        }
+
+        IOException failure = null;
+        try {
+            renameDatabaseFiles(name, newName);
+        } catch (IOException error) {
+            failure = error;
+        }
+
+        if (wasCurrent) {
+            currentDatabase = failure == null ? newName : name;
+            engine.openDatabase(databaseFile(currentDatabase).getAbsolutePath());
+            databaseAttached = true;
+            applyMode();
+            persistPreferences();
+        }
+        if (failure != null)
+            throw failure;
+    }
+
+    private void renameDatabaseFiles(String name, String newName) throws IOException {
+        File main = databaseFile(name);
+        if (main.isFile() && !main.renameTo(databaseFile(newName)))
+            throw new IOException("Cannot rename database file: " + main.getName());
+
+        File[] files = databaseDirectory().listFiles();
+        if (files == null)
+            return;
+        String prefix = name + "_bak";
+        for (File file : files) {
+            String fileName = file.getName();
+            if (!fileName.startsWith(prefix) || !fileName.endsWith(DATABASE_EXT))
+                continue;
+            String stem = fileName.substring(0, fileName.length() - DATABASE_EXT.length());
+            if (isBackupName(stem)) {
+                // Losing a backup's link is harmless; the main file has already moved.
+                file.renameTo(new File(databaseDirectory(),
+                        newName + stem.substring(name.length()) + DATABASE_EXT));
+            }
+        }
+    }
+
     /** Emit diagnostic lines through the status channel (shown in the message drawer). */
     private void emitStatusLines(List<String> lines) {
         for (String line : lines) {
@@ -648,7 +724,12 @@ public class NativeRapfiPlugin extends Plugin {
         return removed;
     }
 
+    /** Call on {@link #commandQueue} so the live count cannot race a database switch. */
     private JSObject databaseStatusObject() {
+        long records = initialized ? engine.databaseSize() : -1;
+        if (records >= 0)
+            dbRecordCount = (int) records;
+
         JSArray databases = new JSArray();
         for (String name : listDatabaseNames())
             databases.put(name);

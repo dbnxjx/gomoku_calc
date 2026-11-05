@@ -163,6 +163,14 @@ public final class RapfiJni implements AutoCloseable {
         return nativeIsThinking() != 0;
     }
 
+    /**
+     * @return the record count of the attached database, or -1 when none is attached.
+     *         Unlike {@link #sendCommand}, this does not interrupt a running search.
+     */
+    public long databaseSize() {
+        return started ? nativeDatabaseSize() : -1;
+    }
+
     @Override
     public synchronized void close() {
         if (started) {
@@ -182,5 +190,6 @@ public final class RapfiJni implements AutoCloseable {
     private native void nativeSendCommand(String command);
     private native void nativeStopThinking();
     private native int nativeIsThinking();
+    private native long nativeDatabaseSize();
     private native void nativeTerminate();
 }

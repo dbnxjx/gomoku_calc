@@ -1,6 +1,16 @@
 import * as engine from '@/ai/engine'
 import { RENJU, CONFIGS } from './settings'
 
+export function isSamePosition(a, b) {
+  return !!a && !!b && a.length === b.length &&
+    a.every((move, index) => move[0] === b[index][0] && move[1] === b[index][1])
+}
+
+// Replies of the database mate query arrive in order, one per entry here. This
+// keeps a late reply from being shown on a position that has already changed.
+let killPointQueries = []
+let killPointBuffer = []
+
 const state = {
   fullEngine: false,
   engineBackend: 'native-rapfi',
@@ -19,6 +29,8 @@ const state = {
   lastThinkTime: 0,
   lastThinkPosition: [],
   lastHeatmapLogAt: 0,
+  killPointsPosition: null,
+  databaseRevision: 0,
   currentConfig: null,
   hashSize: null,
   outputs: {
@@ -196,6 +208,13 @@ const mutations = {
   setLastHeatmapLogAt(state, time) {
     state.lastHeatmapLogAt = time
   },
+  setKillPoints(state, { position, points }) {
+    state.killPointsPosition = position
+    state.outputs.killPoints = points
+  },
+  bumpDatabaseRevision(state) {
+    state.databaseRevision += 1
+  },
 }
 
 const actions = {
@@ -207,6 +226,8 @@ const actions = {
     commit('setStartSize', 0)
     commit('setRestart', true)
     commit('setKataGoPaused', false)
+    killPointQueries = []
+    killPointBuffer = []
     commit(
       'addMessage',
       `WebView: secure=${window.isSecureContext ? 1 : 0}, isolated=${window.crossOriginIsolated ? 1 : 0}, SAB=${typeof SharedArrayBuffer !== 'undefined' ? 1 : 0}`
@@ -240,8 +261,14 @@ const actions = {
             commit('addMessage', `KataGo heatmap candidates=${r.heatmap.length}, maxRank=${maxRank}, totalVisits=${totalVisits}`)
           }
         }
-      } else if (r.killPoints) {
-        commit('setOutput', { key: 'killPoints', value: r.killPoints })
+      } else if (r.killPoint) {
+        killPointBuffer.push(r.killPoint)
+      } else if (r.killPointsDone) {
+        const position = killPointQueries.shift()
+        if (position && isSamePosition(position, rootState.position.position)) {
+          commit('setKillPoints', { position, points: killPointBuffer })
+        }
+        killPointBuffer = []
       } else if (r.realtime) {
         switch (r.realtime.type) {
           case 'LOST':
@@ -304,6 +331,8 @@ const actions = {
       } else if (r.error) {
         if (eventEngineType === 'RAPFI') commit('setNativeEngineAvailable', false)
         commit('setNativeAvailability', { engineType: eventEngineType, available: false })
+        killPointQueries = []
+        killPointBuffer = []
         commit('setOutput', { key: 'error', value: r.error })
         commit('addMessage', 'Error: ' + r.error)
       } else if (r.ok) {
@@ -332,7 +361,7 @@ const actions = {
     engine.sendCommand('INFO TIMEOUT_MATCH ' + rootGetters['settings/matchTime'])
     engine.sendCommand('INFO MAX_DEPTH ' + rootGetters['settings/depth'])
     engine.sendCommand('INFO MAX_NODE ' + rootGetters['settings/nodes'])
-    engine.sendCommand('INFO SHOW_DETAIL ' + (rootState.settings.showDetail ? 3 : 2))
+    engine.sendCommand('INFO SHOW_DETAIL 3')
     engine.sendCommand('INFO PONDERING ' + (rootState.settings.pondering ? 1 : 0))
     engine.sendCommand('INFO SWAPABLE ' + (rootState.position.swaped ? 0 : 1))
   },
@@ -492,6 +521,25 @@ const actions = {
       dispatch('sendBoard', false)
       engine.sendCommand('YXSHOWFORBID')
     }
+  },
+  queryKillPoints({ commit, state, rootState }) {
+    // Any native command would stop a running search, so only query while idle.
+    if (!state.ready || state.thinking || rootState.settings.engineType !== 'RAPFI' ||
+      !rootState.settings.showKillPoints) {
+      commit('setKillPoints', { position: null, points: [] })
+      return
+    }
+
+    const position = rootState.position.position.map((move) => [...move])
+    engine.sendCommand('INFO RULE ' + rootState.settings.rule)
+    if (state.restart || state.startSize != rootState.position.size) {
+      engine.sendCommand('START ' + rootState.position.size)
+      commit('setRestart', false)
+      commit('setStartSize', rootState.position.size)
+    }
+    killPointQueries.push(position)
+    const moves = position.map((move) => move[0] + ',' + move[1]).join(' ')
+    engine.sendCommand('YXQUERYDATABASEMATES ' + (moves ? moves + ' ' : '') + 'DONE')
   },
 }
 

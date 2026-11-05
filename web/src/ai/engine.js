@@ -4,6 +4,9 @@ import { registerPlugin } from '@capacitor/core'
 // future Android Capacitor plugins; this module never loads browser WASM.
 const NativeRapfi = registerPlugin('NativeRapfi')
 const NativeKataGo = registerPlugin('NativeKataGo')
+// Reply lines of the engine's YXQUERYDATABASEMATES command.
+const DB_MATE_PREFIX = 'DATABASE MATE '
+const DB_MATE_DONE = 'DATABASE MATE DONE'
 const plugins = {
   RAPFI: NativeRapfi,
   KATAGO: NativeKataGo,
@@ -40,6 +43,13 @@ function parseStdout(output, analysisId) {
       const result = { type: realtime[1] }
       if (realtime[2]) result.pos = realtime[2].split(',').map(Number)
       return emitResult({ realtime: result })
+    }
+    if (tail === DB_MATE_DONE) return emitResult({ killPointsDone: true })
+    if (tail.startsWith(DB_MATE_PREFIX)) {
+      const [x, y, evalText] = tail.substring(DB_MATE_PREFIX.length).split(' ')
+      return emitResult({
+        killPoint: { x: +x, y: +y, eval: evalText, evalType: evalText.startsWith('+') ? 'win' : 'loss' },
+      })
     }
     return emitResult({ msg: tail })
   }

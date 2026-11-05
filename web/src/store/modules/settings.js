@@ -8,8 +8,16 @@ export const CONFIGS = ['config.toml', 'classical220723.toml', 'classical210901.
 const SETTINGS_KEY = 'GMKC_CFG'
 const versionedSettingsKey = `${SETTINGS_KEY}_${version}`
 
+export const THINK_TIME_CUSTOM = 0,
+  THINK_TIME_ANALYSIS = 3
+
+export const LAYOUT_LANDSCAPE = 'landscape',
+  LAYOUT_PORTRAIT = 'portrait',
+  LAYOUT_AUTO = 'auto'
+
 const state = {
   language: null,
+  layoutMode: LAYOUT_AUTO, // 布局方式: landscape-横屏 portrait-竖屏 auto-自适应
   boardStyle: {
     boardColor: '#F4D03F',
     lineColor: '#000000',
@@ -31,8 +39,6 @@ const state = {
     indexScale: 0.45,
     lastStepColor: '#E74C3C',
     lastStepScale: 0.15,
-    winlineWidth: 0.12,
-    winlineColor: '#2E86C1',
     bestMoveColor: '#E74C3C',
     thoughtMoveColor: '#3C5EE7',
     lostMoveColor: '#FDFEFE',
@@ -48,7 +54,7 @@ const state = {
     pvEvalAlpha: 0.9,
   },
   boardSize: 15,
-  thinkTimeOption: 1,
+  thinkTimeOption: THINK_TIME_ANALYSIS,
   turnTime: 5000,
   matchTime: 9999000,
   maxDepth: 64,
@@ -65,24 +71,21 @@ const state = {
   hashSize: 128, // 置换表大小, 单位 MiB
   pondering: false, // 后台思考
   clickCheck: 0, // 点击方式: 0-直接落子 1-二次确认 2-滑动落子
-  indexOrigin: 0, // 棋子序号起点
   showCoord: true,
   showAnalysis: true,
-  showDetail: true,
+  showMoveTree: true,
   showPvEval: 0, // 是否显示实时估值: 0-不显示 1-显示估值 2-显示胜率
   showIndex: true,
-  showLastStep: true,
-  showWinline: true,
   showForbid: true,
   showHeatmap: true,
   showKillPoints: true,
-  showVisitsPerSecond: true,
   aiThinkBlack: false,
   aiThinkWhite: false,
 }
 
 const propertiesToSave = [
   'language',
+  'layoutMode',
   'boardSize',
   'thinkTimeOption',
   'turnTime',
@@ -103,15 +106,12 @@ const propertiesToSave = [
   'clickCheck',
   'showCoord',
   'showAnalysis',
-  'showDetail',
+  'showMoveTree',
   'showPvEval',
   'showIndex',
-  'showLastStep',
-  'showWinline',
   'showForbid',
   'showHeatmap',
   'showKillPoints',
-  'showVisitsPerSecond',
   'aiThinkBlack',
   'aiThinkWhite',
 ]
@@ -119,7 +119,6 @@ const propertiesToSave = [
 const boardPropertiesToSave = [
   'boardColor',
   'lastStepColor',
-  'winlineColor',
   'bestMoveColor',
   'thoughtMoveColor',
   'lostMoveColor',
@@ -127,18 +126,16 @@ const boardPropertiesToSave = [
 
 const getters = {
   turnTime: (state) => {
-    let turn = [state.turnTime, 7000, 40000, -1]
-    return turn[state.thinkTimeOption]
+    return state.thinkTimeOption == THINK_TIME_CUSTOM ? state.turnTime : -1
   },
   matchTime: (state) => {
-    let match = [state.matchTime, 180000, 900000, -1]
-    return match[state.thinkTimeOption]
+    return state.thinkTimeOption == THINK_TIME_CUSTOM ? state.matchTime : -1
   },
   depth: (state) => {
-    return state.thinkTimeOption == 0 ? state.maxDepth : 100
+    return state.thinkTimeOption == THINK_TIME_CUSTOM ? state.maxDepth : 100
   },
   nodes: (state) => {
-    return state.thinkTimeOption == 0 ? state.maxNodes : 0
+    return state.thinkTimeOption == THINK_TIME_CUSTOM ? state.maxNodes : 0
   },
   gameRule: (state) => {
     switch (state.rule) {
@@ -233,6 +230,10 @@ const actions = {
     }
     if (stateToRead.rapfiThreads === undefined && stateToRead.threads !== undefined) {
       stateToRead.rapfiThreads = stateToRead.threads
+    }
+    // The removed fast/slow presets continue in analysis mode.
+    if (stateToRead.thinkTimeOption !== undefined && stateToRead.thinkTimeOption != THINK_TIME_CUSTOM) {
+      stateToRead.thinkTimeOption = THINK_TIME_ANALYSIS
     }
     // Keep defaults for fields introduced after an existing installation.
     for (let p of propertiesToSave) {

@@ -183,6 +183,7 @@ Settings.vue 直接使用页面已有的 `group`、`cell`、`popup-radio` 和 `x
 | `createDatabase({name})` | 名称（不含 `.db`） | 同上 |
 | `switchDatabase({name})` | 名称 | 同上 |
 | `deleteDatabase({name})` | 名称（默认库不可删） | 同上 |
+| `renameDatabase({name, newName})` | 原名称、新名称（连同备份一起改名，当前库改名后仍保持选中） | 同上 |
 | `setDatabaseMode({mode})` | `on` \| `readonly` \| `off` | 同上 |
 | `getDatabaseStatus()` | — | 同上 |
 | `exportDatabase({name?})` | 库名（缺省当前库） | 系统保存对话框 |

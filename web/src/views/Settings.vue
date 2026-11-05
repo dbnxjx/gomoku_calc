@@ -13,6 +13,7 @@
 
     <group>
       <popup-radio :title="$t('setting.language')" v-model="languageValue" :options="languageOptions" />
+      <popup-radio :title="$t('setting.layout.title')" v-model="layoutModeValue" :options="layoutModeOptions" />
     </group>
 
     <group v-if="engineType === 'RAPFI'" key="rapfi-database">
@@ -63,20 +64,16 @@
       <popup-radio :title="$t('setting.thinking.hashSize')" v-model="hashSizeValue" :options="hashSizeOptions" />
     </group>
 
-    <group v-if="engineType === 'RAPFI'" key="rapfi-display">
+    <group key="board-display">
       <group-title slot="title">{{ $t('setting.board.showTitle') }}</group-title>
-      <popup-radio :title="$t('setting.board.clickCheck.title')" v-model="clickCheckValue"
+      <popup-radio v-if="engineType === 'RAPFI'" :title="$t('setting.board.clickCheck.title')" v-model="clickCheckValue"
         :options="clickCheckOptions" />
-      <x-switch :title="$t('setting.board.showCoord')" v-model="showCoordValue" />
+      <x-switch v-if="engineType === 'RAPFI'" :title="$t('setting.board.showCoord')" v-model="showCoordValue" />
       <x-switch :title="$t('setting.board.showAnalysis')" v-model="showAnalysisValue" />
-      <x-switch :title="$t('setting.board.showDetail')" v-model="showDetailValue" />
-      <x-switch :title="$t('setting.board.showIndex')" v-model="showIndexValue" />
-      <x-switch :title="$t('setting.board.showLastStep')" v-model="showLastStepValue" />
-      <x-switch :title="$t('setting.board.showWinline')" v-model="showWinlineValue" />
-      <x-switch :title="$t('setting.board.showForbid')" v-model="showForbidValue" />
-      <x-switch :title="$t('setting.board.showKillPoints')" v-model="showKillPointsValue" />
-      <x-switch :title="$t('setting.board.showVisitsPerSecond')" v-model="showVisitsPerSecondValue" />
-      <popup-radio :title="$t('setting.board.showPvEval.title')" v-model="showPvEvalValue"
+      <x-switch :title="$t('setting.board.showMoveTree')" v-model="showMoveTreeValue" />
+      <x-switch v-if="engineType === 'RAPFI'" :title="$t('setting.board.showForbid')" v-model="showForbidValue" />
+      <x-switch v-if="engineType === 'RAPFI'" :title="$t('setting.board.showKillPoints')" v-model="showKillPointsValue" />
+      <popup-radio v-if="engineType === 'RAPFI'" :title="$t('setting.board.showPvEval.title')" v-model="showPvEvalValue"
         :options="showPvEvalOptions" />
     </group>
 
@@ -87,9 +84,6 @@
       </cell>
       <cell :title="$t('setting.board.lastStepColor')">
         <input type="color" v-model="lastStepColor" />
-      </cell>
-      <cell :title="$t('setting.board.winlineColor')">
-        <input type="color" v-model="winlineColor" />
       </cell>
       <cell :title="$t('setting.board.bestMoveColor')">
         <input type="color" v-model="bestMoveColor" />
@@ -126,12 +120,14 @@
         <popup v-model="databasePickerOpen" position="bottom" height="auto">
           <div class="database-picker">
             <div v-for="name in databasePickerNames" :key="name" class="database-picker-row">
-              <button class="database-picker-name" @click="switchDatabase(name)">{{ name }}</button>
-              <div class="database-picker-actions">
-                <button class="database-export" @click="exportDatabase(name)">导出</button>
-                <button v-if="name !== databaseCurrent" class="database-delete" @click="deleteDatabase(name)">删除</button>
-              </div>
-              <span v-if="name === databaseCurrent" class="database-check">✓</span>
+              <button class="database-picker-name" @click="onDatabaseNameClick(name)"
+                @mousedown="startDatabaseLongPress(name)" @mouseup="cancelDatabaseLongPress"
+                @mouseleave="cancelDatabaseLongPress" @touchstart="startDatabaseLongPress(name)"
+                @touchmove="cancelDatabaseLongPress" @touchend="cancelDatabaseLongPress"
+                @touchcancel="cancelDatabaseLongPress">{{ name }}</button>
+              <button class="database-action database-export" @click="exportDatabase(name)">导出</button>
+              <span v-if="name === databaseCurrent" class="database-action database-check">✓</span>
+              <button v-else class="database-action database-delete" @click="deleteDatabase(name)">删除</button>
             </div>
             <div class="database-picker-action-row database-picker-first-action" @click="importDatabase">导入已有数据库</div>
             <div class="database-picker-action-row" @click="openCreateDatabase">新建数据库</div>
@@ -159,8 +155,11 @@
 import { TransferDom, Group, GroupTitle, XSwitch, XNumber, XButton, Radio, PopupRadio, Cell, Box, Popup, XDialog } from 'vux'
 import { registerPlugin } from '@capacitor/core'
 import { mapState, mapMutations, mapActions } from 'vuex'
+import { THINK_TIME_CUSTOM, THINK_TIME_ANALYSIS, LAYOUT_LANDSCAPE, LAYOUT_PORTRAIT, LAYOUT_AUTO } from '@/store/modules/settings'
 
 const NativeRapfi = registerPlugin('NativeRapfi')
+const DATABASE_STATUS_INTERVAL = 1000
+const DATABASE_LONG_PRESS_MS = 650
 
 export default {
   name: 'settings',
@@ -189,6 +188,10 @@ export default {
       databaseBusy: false,
       databasePickerOpen: false,
       createDatabaseDialog: false,
+      databaseStatusTimer: null,
+      databaseStatusLoading: false,
+      databaseLongPressTimer: null,
+      databaseLongPressHandled: false,
     }
   },
   computed: {
@@ -196,6 +199,7 @@ export default {
     ...mapState('ai', ['fullEngine', 'nativeRapfiAvailable', 'nativeKataGoAvailable', 'kataGoBenchmarking']),
     ...mapState('settings', [
       'language',
+      'layoutMode',
       'thinkTimeOption',
       'turnTime',
       'matchTime',
@@ -216,15 +220,11 @@ export default {
       'clickCheck',
       'showCoord',
       'showAnalysis',
-      'showDetail',
+      'showMoveTree',
       'showPvEval',
-      'showIndex',
-      'showLastStep',
-      'showWinline',
       'showForbid',
       'showHeatmap',
       'showKillPoints',
-      'showVisitsPerSecond',
       'kataGoMaxPoints',
       'boardStyle',
       'hashSize',
@@ -240,6 +240,13 @@ export default {
         { "key": "ru", "value": "Русский" }
       ]
     },
+    layoutModeOptions() {
+      return [
+        { key: LAYOUT_LANDSCAPE, value: this.$t('setting.layout.landscape') },
+        { key: LAYOUT_PORTRAIT, value: this.$t('setting.layout.portrait') },
+        { key: LAYOUT_AUTO, value: this.$t('setting.layout.auto') },
+      ]
+    },
     engineOptions() {
       return [
         { key: 'RAPFI', value: 'Rapfi' },
@@ -248,10 +255,8 @@ export default {
     },
     thinkTimeOptions() {
       return [
-        { key: 1, value: this.$t('setting.thinking.fast') },
-        { key: 2, value: this.$t('setting.thinking.slow') },
-        { key: 3, value: this.$t('setting.thinking.analysis') },
-        { key: 0, value: this.$t('setting.thinking.custom') },
+        { key: THINK_TIME_ANALYSIS, value: this.$t('setting.thinking.analysis') },
+        { key: THINK_TIME_CUSTOM, value: this.$t('setting.thinking.custom') },
       ]
     },
     configIndexOptions() {
@@ -316,6 +321,14 @@ export default {
       },
       set(v) {
         this.setValue({ key: 'language', value: v })
+      },
+    },
+    layoutModeValue: {
+      get() {
+        return this.layoutMode
+      },
+      set(v) {
+        this.setValue({ key: 'layoutMode', value: v })
       },
     },
     thinkTimeSelected: {
@@ -498,12 +511,12 @@ export default {
         this.setValue({ key: 'showAnalysis', value: v })
       },
     },
-    showDetailValue: {
+    showMoveTreeValue: {
       get() {
-        return this.showDetail
+        return this.showMoveTree
       },
       set(v) {
-        this.setValue({ key: 'showDetail', value: v })
+        this.setValue({ key: 'showMoveTree', value: v })
       },
     },
     showPvEvalValue: {
@@ -512,30 +525,6 @@ export default {
       },
       set(v) {
         this.setValue({ key: 'showPvEval', value: v })
-      },
-    },
-    showIndexValue: {
-      get() {
-        return this.showIndex
-      },
-      set(v) {
-        this.setValue({ key: 'showIndex', value: v })
-      },
-    },
-    showLastStepValue: {
-      get() {
-        return this.showLastStep
-      },
-      set(v) {
-        this.setValue({ key: 'showLastStep', value: v })
-      },
-    },
-    showWinlineValue: {
-      get() {
-        return this.showWinline
-      },
-      set(v) {
-        this.setValue({ key: 'showWinline', value: v })
       },
     },
     showForbidValue: {
@@ -570,14 +559,6 @@ export default {
         this.setValue({ key: 'showKillPoints', value: v })
       },
     },
-    showVisitsPerSecondValue: {
-      get() {
-        return this.showVisitsPerSecond
-      },
-      set(v) {
-        this.setValue({ key: 'showVisitsPerSecond', value: v })
-      },
-    },
     boardColor: {
       get() {
         return this.boardStyle.boardColor
@@ -592,14 +573,6 @@ export default {
       },
       set(v) {
         this.setBoardStyle({ key: 'lastStepColor', value: v })
-      },
-    },
-    winlineColor: {
-      get() {
-        return this.boardStyle.winlineColor
-      },
-      set(v) {
-        this.setBoardStyle({ key: 'winlineColor', value: v })
       },
     },
     bestMoveColor: {
@@ -633,12 +606,25 @@ export default {
     ...mapActions('ai', ['checkForbid', 'runKataGoBenchmark']),
     async refreshDatabaseStatus() {
       if (this.engineType !== 'RAPFI' || !NativeRapfi.getDatabaseStatus) return
+      if (this.databaseBusy || this.databaseStatusLoading) return
+      this.databaseStatusLoading = true
       try {
         const result = await NativeRapfi.getDatabaseStatus()
-        this.adoptDatabaseStatus(result)
+        if (!this.databaseBusy) this.adoptDatabaseStatus(result)
       } catch (error) {
-        // The native plugin may still be starting; the next engine-ready event can refresh it.
+        // The native plugin may still be starting; the next poll refreshes it.
+      } finally {
+        this.databaseStatusLoading = false
       }
+    },
+    startDatabaseStatusPolling() {
+      this.stopDatabaseStatusPolling()
+      this.refreshDatabaseStatus()
+      this.databaseStatusTimer = setInterval(() => this.refreshDatabaseStatus(), DATABASE_STATUS_INTERVAL)
+    },
+    stopDatabaseStatusPolling() {
+      clearInterval(this.databaseStatusTimer)
+      this.databaseStatusTimer = null
     },
     adoptDatabaseStatus(result) {
       if (!result) return
@@ -647,11 +633,49 @@ export default {
       if (Array.isArray(result.databases) && result.databases.length) this.databaseNames = result.databases
       if (typeof result.recordCount === 'number') this.databaseRecordCount = result.recordCount
     },
+    adoptChangedDatabase(result) {
+      this.adoptDatabaseStatus(result)
+      this.$store.commit('ai/bumpDatabaseRevision')
+    },
+    onDatabaseNameClick(name) {
+      if (this.databaseLongPressHandled) {
+        this.databaseLongPressHandled = false
+        return
+      }
+      this.switchDatabase(name)
+    },
+    startDatabaseLongPress(name) {
+      this.cancelDatabaseLongPress()
+      this.databaseLongPressHandled = false
+      this.databaseLongPressTimer = setTimeout(() => this.renameDatabase(name), DATABASE_LONG_PRESS_MS)
+    },
+    cancelDatabaseLongPress() {
+      clearTimeout(this.databaseLongPressTimer)
+      this.databaseLongPressTimer = null
+    },
+    async renameDatabase(name) {
+      this.cancelDatabaseLongPress()
+      this.databaseLongPressHandled = true
+      const newName = (prompt('重命名数据库', name) || '').trim()
+      if (!newName || newName === name || this.databaseBusy) return
+      if (this.databaseNames.some((existing) => existing !== name && existing.toLowerCase() === newName.toLowerCase())) {
+        alert('已有同名数据库')
+        return
+      }
+      this.databaseBusy = true
+      try {
+        this.adoptChangedDatabase(await NativeRapfi.renameDatabase({ name, newName }))
+      } catch (error) {
+        alert('重命名失败: ' + error.message)
+      } finally {
+        this.databaseBusy = false
+      }
+    },
     async setDatabaseMode(mode) {
       if (this.databaseBusy) return
       this.databaseBusy = true
       try {
-        this.adoptDatabaseStatus(await NativeRapfi.setDatabaseMode({ mode }))
+        this.adoptChangedDatabase(await NativeRapfi.setDatabaseMode({ mode }))
       } catch (error) {
         this.$vux.toast.text('数据库设置失败')
       } finally {
@@ -662,7 +686,7 @@ export default {
       if (this.databaseBusy || !name) return
       this.databaseBusy = true
       try {
-        this.adoptDatabaseStatus(await NativeRapfi.switchDatabase({ name }))
+        this.adoptChangedDatabase(await NativeRapfi.switchDatabase({ name }))
         this.databasePickerOpen = false
       } catch (error) {
         this.$vux.toast.text('数据库切换失败')
@@ -701,7 +725,7 @@ export default {
       }
       this.databaseBusy = true
       try {
-        this.adoptDatabaseStatus(await NativeRapfi.createDatabase({ name }))
+        this.adoptChangedDatabase(await NativeRapfi.createDatabase({ name }))
         this.newDatabaseName = ''
         this.createDatabaseDialog = false
       } catch (error) {
@@ -714,7 +738,7 @@ export default {
       if (this.databaseBusy) return
       this.databaseBusy = true
       try {
-        this.adoptDatabaseStatus(await NativeRapfi.importDatabase())
+        this.adoptChangedDatabase(await NativeRapfi.importDatabase())
         this.databasePickerOpen = false
       } catch (error) {
         this.$vux.toast.text('数据库导入失败')
@@ -755,8 +779,16 @@ export default {
       if (value === 'RAPFI') this.refreshDatabaseStatus()
     },
   },
-  mounted() {
-    this.refreshDatabaseStatus()
+  // The page is kept alive, and analysis may keep adding records while it is shown.
+  activated() {
+    this.startDatabaseStatusPolling()
+  },
+  deactivated() {
+    this.stopDatabaseStatusPolling()
+  },
+  beforeDestroy() {
+    this.stopDatabaseStatusPolling()
+    this.cancelDatabaseLongPress()
   },
 }
 </script>
@@ -806,19 +838,28 @@ export default {
 }
 .database-picker-name {
   flex: 1;
+  min-width: 0;
+  align-self: stretch;
   border: 0;
+  padding: 0;
   background: transparent;
   text-align: left;
   font-size: 16px;
   color: #333;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.database-picker-actions button {
+.database-action {
+  flex: 0 0 48px;
+  box-sizing: border-box;
   border: 0;
   background: #fff;
   color: #888;
-  padding: 6px 8px;
+  padding: 6px 0;
+  text-align: center;
 }
-.database-picker-actions .database-delete {
+.database-delete {
   color: #e64340;
 }
 .database-picker-action-row {
@@ -833,6 +874,7 @@ export default {
   margin-top: 0.2em;
 }
 .database-check {
+  padding: 0;
   color: #1aad19;
   font-size: 20px;
 }

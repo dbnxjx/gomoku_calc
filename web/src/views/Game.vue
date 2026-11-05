@@ -1,109 +1,86 @@
 <template>
-  <div class="game">
+  <div class="game" :class="{ 'game-landscape': landscapeLayout }">
     <div class="board-box">
       <Board ref="board" :is-ai-turn="isAITurn" :kill-point-scores="killPointScores" @clicked="clicked"></Board>
 
-      <div class="button-box">
-        <scroller lock-y :scrollbar-x="$store.state.screenWidth < buttonBarWidth" :bounce="false">
-          <div class="button-box" :style="{ width: `${buttonBarWidth}px` }">
-            <flexbox :gutter="0">
-              <flexbox-item>
-                <x-button @click.native="newGame" style="padding: 0">
-                  <i class="fa fa-file-o" aria-hidden="true"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button :disabled="!canTreeBackward" style="padding: 0" @click.native="() => {
-                  checkThinking().then(() => {
-                    backToBeginWithTree()
-                  })
-                }
-                  ">
-                  <i class="fa fa-angle-double-left fa-lg" aria-hidden="true"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button :disabled="!canTreeBackward" style="padding: 0" @click.native="() => {
-                  checkThinking().then(() => {
-                    backwardWithTree()
-                  })
-                }
-                  ">
-                  <i class="fa fa-angle-left fa-lg" aria-hidden="true"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button :disabled="!canTreeForward" style="padding: 0" @click.native="() => {
-                  checkThinking().then(() => {
-                    forwardWithTree()
-                  })
-                }
-                  ">
-                  <i class="fa fa-angle-right fa-lg" aria-hidden="true"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button :disabled="!canTreeForward" style="padding: 0" @click.native="() => {
-                  checkThinking().then(() => {
-                    forwardToEndWithTree()
-                  })
-                }
-                  ">
-                  <i class="fa fa-angle-double-right fa-lg" aria-hidden="true"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button v-if="!ready" style="padding: 0" @click.native="showLoading = true">
-                  <i class="fa fa-spinner fa-spin"></i>
-                </x-button>
-                <x-button v-else :disabled="thinking || gameEnded" style="padding: 0" @click.native="startThink">
-                  <i v-if="thinking" class="fa fa-cog fa-spin"></i>
-                  <i v-else class="fa fa-play" :style="{
-                    color: gameEnded ? '#145A32' : '#229954',
-                  }"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button :disabled="!thinking" style="padding: 0" @click.native="stop">
-                  <i class="fa fa-stop" :style="{ color: thinking ? '#E74C3C' : '#78281F' }"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item :span="1 / 40" style="min-width: 0px"></flexbox-item>
-
-              <flexbox-item>
-                <x-button style="padding: 0" @click.native="() => {
-                  showScreenshotOptions = true
-                }
-                  ">
-                  <i class="fa fa-picture-o" aria-hidden="true"></i>
-                </x-button>
-              </flexbox-item>
-              <flexbox-item>
-                <x-button style="padding: 0" @click.native="() => {
-                  setValue({
-                    key: 'indexOrigin',
-                    value: indexOrigin == 0 ? position.length : 0,
-                  })
-                }
-                  ">
-                  <i v-if="indexOrigin == 0" class="fa fa-info-circle" aria-hidden="true"></i>
-                  <i v-else class="fa fa-info" aria-hidden="true"></i>
-                </x-button>
-              </flexbox-item>
-
-              <flexbox-item :span="1 / 40" style="min-width: 0px"></flexbox-item>
-
-            </flexbox>
-          </div>
-        </scroller>
+      <div class="button-box" :style="{ width: `${buttonBarWidth}px` }">
+        <flexbox :gutter="0">
+          <flexbox-item>
+            <x-button @click.native="newGame" style="padding: 0">
+              <i class="fa fa-file-o" aria-hidden="true"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
+            <x-button :disabled="!canTreeBackward" style="padding: 0" @click.native="() => {
+              checkThinking().then(() => {
+                backToBeginWithTree()
+              })
+            }
+              ">
+              <i class="fa fa-angle-double-left fa-lg" aria-hidden="true"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
+            <x-button :disabled="!canTreeBackward" style="padding: 0" @click.native="() => {
+              checkThinking().then(() => {
+                backwardWithTree()
+              })
+            }
+              ">
+              <i class="fa fa-angle-left fa-lg" aria-hidden="true"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
+            <x-button :disabled="!canTreeForward" style="padding: 0" @click.native="() => {
+              checkThinking().then(() => {
+                forwardWithTree()
+              })
+            }
+              ">
+              <i class="fa fa-angle-right fa-lg" aria-hidden="true"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
+            <x-button :disabled="!canTreeForward" style="padding: 0" @click.native="() => {
+              checkThinking().then(() => {
+                forwardToEndWithTree()
+              })
+            }
+              ">
+              <i class="fa fa-angle-double-right fa-lg" aria-hidden="true"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
+            <x-button v-if="!ready" style="padding: 0" @click.native="showLoading = true">
+              <i class="fa fa-spinner fa-spin"></i>
+            </x-button>
+            <x-button v-else :disabled="thinking || gameEnded" style="padding: 0" @click.native="startThink">
+              <i v-if="thinking" class="fa fa-cog fa-spin"></i>
+              <i v-else class="fa fa-play" :style="{
+                color: gameEnded ? '#145A32' : '#229954',
+              }"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
+            <x-button :disabled="!thinking" style="padding: 0" @click.native="stop">
+              <i class="fa fa-stop" :style="{ color: thinking ? '#E74C3C' : '#78281F' }"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
+            <x-button style="padding: 0" @click.native="setValue({ key: 'showIndex', value: !showIndex })">
+              <i v-if="showIndex" class="fa fa-info-circle" aria-hidden="true"></i>
+              <i v-else class="fa fa-info" aria-hidden="true"></i>
+            </x-button>
+          </flexbox-item>
+        </flexbox>
       </div>
     </div>
 
     <load-more :show-loading="false" background-color="#fbf9fe" class="seperator"></load-more>
 
-    <div class="info-box" :style="showAnalysis || engineType === 'KATAGO' ? {} : { display: 'none' }">
-      <div>
-        <x-progress v-if="engineType === 'RAPFI' && thinking && aiTimeUsed > 0 && turnTime != 0"
+    <div class="info-box">
+      <div v-show="showAnalysis">
+        <x-progress v-if="engineType === 'RAPFI' && thinking && aiTimeUsed > 0 && turnTime > 0"
           :percent="Math.min((100 * aiTimeUsed) / Math.min(turnTime, matchTime), 100)"
           :show-cancel="false"></x-progress>
 
@@ -115,23 +92,25 @@
         </div>
 
         <template v-if="engineType === 'RAPFI'">
-          <x-table :cell-bordered="true" style="background-color: #fff; line-height: 210%">
+          <x-table :cell-bordered="true" style="background-color: #fff; line-height: 210%; table-layout: fixed">
             <thead>
               <tr style="background-color: #f7f7f7">
-                <th>{{ $t('game.info.nbestIndex') }}</th>
-                <th>{{ $t('game.info.depth') }}</th>
-                <th>{{ $t('game.info.eval') }}</th>
+                <th style="width: 44px">{{ $t('game.info.nbestIndex') }}</th>
+                <th style="width: 62px">{{ $t('game.info.depth') }}</th>
+                <th style="width: 62px">{{ $t('game.info.eval') }}</th>
                 <th>{{ $t('game.info.bestline') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="i in Math.min(nbest, outputs.pv.length)" :key="i">
-                <td style="min-width: 40px">{{ i }}</td>
-                <td style="min-width: 55px">
+                <td>{{ i }}</td>
+                <td>
                   {{ outputs.pv[i - 1].depth + '-' + outputs.pv[i - 1].seldepth }}
                 </td>
-                <td style="font-weight: bold; min-width: 55px">{{ outputs.pv[i - 1].eval }}</td>
-                <td>{{ formatBestline(outputs.pv[i - 1].bestline) }}</td>
+                <td style="font-weight: bold">{{ outputs.pv[i - 1].eval }}</td>
+                <td>
+                  <div class="bestline-scroll">{{ formatBestline(outputs.pv[i - 1].bestline) }}</div>
+                </td>
               </tr>
             </tbody>
           </x-table>
@@ -162,27 +141,8 @@
         </div>
       </div>
 
-      <MoveTree ref="moveTree" @node-selected="onTreeNodeSelected" @tree-cleared="onTreeCleared" @record-loaded="onRecordLoaded" />
-    </div>
-
-    <div v-transfer-dom>
-      <actionsheet v-model="showScreenshotOptions" :menus="shotOptions" @on-click-menu="onScreenshotOption" show-cancel
-        :cancel-text="$t('common.cancel')"></actionsheet>
-    </div>
-
-    <div v-transfer-dom>
-      <popup v-model="showScreenshot" style="height: 50%" is-transparent>
-        <div class="screenshot-box">
-          <span v-if="gifLoading">
-            {{ $t('game.gifLoading') }}
-            <i class="fa fa-spinner fa-pulse fa-lg" aria-hidden="true" />
-          </span>
-          <img ref="screenshot" class="screenshot-img" />
-          <x-button v-if="!gifLoading" type="primary" :disabled="isOnIOSBrowser" :plain="isOnIOSBrowser"
-            :text="isOnIOSBrowser ? $t('game.saveScreenshotIOS') : $t('game.saveScreenshot')"
-            @click.native="saveScreenshot"></x-button>
-        </div>
-      </popup>
+      <!-- v-show keeps the record loading and auto-save running while the tree is hidden. -->
+      <MoveTree v-show="showMoveTree" ref="moveTree" @node-selected="onTreeNodeSelected" @tree-cleared="onTreeCleared" @record-loaded="onRecordLoaded" />
     </div>
 
     <div v-transfer-dom>
@@ -206,21 +166,19 @@ import {
   Flexbox,
   FlexboxItem,
   XButton,
-  Scroller,
   LoadMore,
   XTable,
-  Actionsheet,
   XProgress,
-  Popup,
   XDialog,
   XCircle,
-  dateFormat,
 } from 'vux'
+import { debounce } from 'throttle-debounce'
 import Board from '@/components/Board.vue'
 import MoveTree from '@/components/MoveTree.vue'
 import { mapState, mapGetters, mapMutations, mapActions } from 'vuex'
 import { Promise } from 'q'
 import { RENJU } from '@/store/modules/settings'
+import { isSamePosition } from '@/store/modules/ai'
 import recordService from '@/services/recordService'
 
 export default {
@@ -234,12 +192,9 @@ export default {
     Flexbox,
     FlexboxItem,
     XButton,
-    Scroller,
     LoadMore,
     XTable,
-    Actionsheet,
     XProgress,
-    Popup,
     XDialog,
     XCircle,
   },
@@ -247,39 +202,49 @@ export default {
     return {
       aiTimeUsed: 0,
       showLoading: false,
-      showScreenshotOptions: false,
-      showScreenshot: false,
       console: console,
       thinkingCanceled: false,
-      gifLoading: false,
-      screenshotData: null,
+      debouncedQueryKillPoints: debounce(120, () => this.$store.dispatch('ai/queryKillPoints')),
     }
   },
   computed: {
-    ...mapState(['screenWidth', 'screenHeight', 'isOnIOSBrowser']),
+    ...mapState(['screenWidth', 'screenHeight']),
     ...mapState('settings', [
       'boardSize',
-      'indexOrigin',
       'rule',
       'nbest',
       'kataGoMaxPoints',
       'aiThinkBlack',
       'aiThinkWhite',
       'showAnalysis',
-      'showVisitsPerSecond',
+      'showMoveTree',
+      'showIndex',
+      'showKillPoints',
       'engineType',
     ]),
-    ...mapState('ai', ['outputs', 'thinking', 'lastThinkTime', 'ready', 'loadingProgress', 'nativeEngineAvailable', 'kataGoPaused']),
+    ...mapState('ai', ['outputs', 'thinking', 'lastThinkTime', 'ready', 'loadingProgress', 'nativeEngineAvailable', 'kataGoPaused', 'killPointsPosition', 'databaseRevision']),
     ...mapState('position', ['position', 'lastPosition', 'winline', 'swaped']),
+    ...mapGetters(['landscapeLayout']),
     ...mapGetters('settings', ['turnTime', 'matchTime', 'gameRule']),
     ...mapGetters('ai', ['bestlineStr', 'bestline']),
     ...mapGetters('position', ['isEmpty', 'playerToMove', 'moveLeftCount']),
     killPointScores() {
-      if (this.engineType !== 'RAPFI' || this.thinking) return []
-      const analyzedPosition = this.$store.state.ai.lastThinkPosition
-      if (analyzedPosition.length !== this.position.length ||
-          analyzedPosition.some((move, index) => move[0] !== this.position[index][0] || move[1] !== this.position[index][1])) return []
+      if (this.engineType !== 'RAPFI' || this.thinking ||
+          !isSamePosition(this.killPointsPosition, this.position)) return []
       return this.outputs.killPoints || []
+    },
+    // Everything that can change which database mates apply to the shown position.
+    killPointQueryKey() {
+      return [
+        this.engineType,
+        this.showKillPoints,
+        this.ready,
+        this.thinking,
+        this.rule,
+        this.boardSize,
+        this.databaseRevision,
+        this.position.join(';'),
+      ].join('|')
     },
     kataGoCandidates() {
       const analyzedPosition = this.$store.state.ai.lastThinkPosition
@@ -299,19 +264,12 @@ export default {
         }))
     },
     buttonBarWidth() {
-      // Keep the remaining buttons at their original size after removing the
-      // balance/transform controls.
-      const Width = 465
-      if (this.screenWidth >= 1024)
-        return Math.min(Width, Width + Math.max(0, this.screenWidth - 1024))
-      else
-        return Width
+      // All buttons stay visible: full size when there is room, otherwise fit the board column.
+      const FullWidth = 413
+      return Math.min(FullWidth, this.landscapeLayout ? Math.floor(this.screenWidth / 2) : this.screenWidth)
     },
     bestline() {
       return this.bestlineStr(0)
-    },
-    shotOptions() {
-      return [this.$t('game.shotJpg'), this.$t('game.shotGif')]
     },
     isAITurn() {
       return (
@@ -424,84 +382,6 @@ export default {
       const shouldResume = this.prepareKataGoForPositionChange()
       this.rotate()
       if (shouldResume) this.startThink()
-    },
-
-    onScreenshotOption(key) {
-      let _this = this
-      let delayPrompt = this.$t('game.gifDelay')
-      let startIndex, delay
-      switch (key) {
-        case 0:
-          this.screenshotData = { url: this.$refs.board.screenshot(), ext: 'jpg' }
-          this.$refs.screenshot.setAttribute('src', this.screenshotData.url)
-          this.showScreenshot = true
-          break
-        case 1:
-          _this.$vux.confirm.prompt_i18n('', {
-            title: this.$t('game.gifStart'),
-            inputAttrs: { type: 'number', min: 1, max: this.position.length },
-            onShow() {
-              _this.$vux.confirm.setInputValue('1')
-            },
-            onConfirm(v) {
-              startIndex = +v
-              if (isNaN(startIndex)) startIndex = 1
-              startIndex = Math.max(0, Math.min(startIndex - 1, _this.position.length))
-              _this.$vux.confirm.prompt_i18n('', {
-                title: delayPrompt,
-                inputAttrs: { type: 'number', min: 100 },
-                onShow() {
-                  _this.$vux.confirm.setInputValue('1000')
-                },
-                onConfirm(v) {
-                  delay = +v
-                  if (isNaN(delay)) delay = 1000
-                  delay = Math.max(100, delay)
-                  _this.gifLoading = true
-                  _this.$refs.screenshot.setAttribute('src', '')
-                  _this.showScreenshot = true
-                  _this.$refs.board.exportGIF(startIndex, delay, (blob) => {
-                    _this.gifLoading = false
-                    _this.screenshotData = { url: URL.createObjectURL(blob), ext: 'gif' }
-                    _this.$refs.screenshot.setAttribute('src', _this.screenshotData.url)
-                  })
-                },
-              })
-            },
-          })
-          break
-      }
-    },
-    saveScreenshot() {
-      function downloadBlobURL(blobUrl, name) {
-        // Create a link element
-        const link = document.createElement('a')
-
-        // Set link's href to point to the Blob URL
-        link.href = blobUrl
-        link.download = name
-
-        // Append link to the body
-        document.body.appendChild(link)
-
-        // Dispatch click event on the link
-        // This is necessary as link.click() does not work on the latest firefox
-        link.dispatchEvent(
-          new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-          })
-        )
-
-        // Remove link from body
-        document.body.removeChild(link)
-      }
-
-      downloadBlobURL(
-        this.screenshotData.url,
-        `screenshot-${dateFormat(new Date(), 'YYYYMMDDHHmmss')}.${this.screenshotData.ext}`
-      )
     },
 
     newGame() {
@@ -773,6 +653,9 @@ export default {
     loadingProgress: function (progress) {
       if (progress == 1) this.showLoading = false
     },
+    killPointQueryKey: function () {
+      this.debouncedQueryKillPoints()
+    },
   },
   mounted() {
     this.newBoard(this.boardSize)
@@ -858,65 +741,40 @@ export default {
   margin-bottom: 0px;
 }
 
-.screenshot-box {
-  width: 95%;
-  text-align: center;
-  background-color: #fff;
-  height: 95%;
-  margin: 0 auto;
-  border-radius: 5px;
+.bestline-scroll {
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+
+// Board on the left half, analysis and move tree on the right half. The halves
+// are fixed so that hiding the right side never resizes the board, and the whole
+// page scrolls when the board is taller than the screen.
+.game-landscape {
   display: flex;
-  flex-direction: column;
-}
+  flex-wrap: nowrap;
+  align-items: flex-start;
 
-.screenshot-img {
-  -webkit-touch-callout: default;
-  flex: 1 1 auto;
-  align-self: center;
-  max-width: 100%;
-  max-height: calc(100% - 42px);
-}
-
-@media (min-aspect-ratio: ~'4/3') and (min-width: 1024px) {
   .seperator {
     display: none !important;
   }
 
-  .game {
-    display: flex;
-    flex-wrap: nowrap;
-    justify-content: stretch;
-    align-items: stretch;
+  .board-box,
+  .info-box {
+    flex: 0 0 50%;
+    width: 50%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .board-box {
-    flex: 0 0 50%;
-    width: 50%;
-    max-width: 50%;
-    box-sizing: border-box;
-    margin: 20px 0;
-    padding: 0 10px;
-    overflow: hidden;
+    padding-top: 6px;
+    padding-bottom: 10px;
   }
 
-  @infobox-padding: ~'min(20px, max(30vw - 350px, 0px))';
-
   .info-box {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    flex: 0 0 50%;
-    width: 50%;
-    max-width: 50%;
-    box-sizing: border-box;
-    margin-top: 20px;
-    margin-left: 0;
-    margin-right: 0;
-    padding-left: @infobox-padding;
-    padding-right: calc(10px + @infobox-padding);
-    padding-top: 10px;
-    overflow: hidden;
+    padding: 6px 10px 10px;
   }
 }
 

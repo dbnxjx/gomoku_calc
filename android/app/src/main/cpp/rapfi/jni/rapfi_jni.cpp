@@ -112,6 +112,12 @@ Java_com_gomocalc_app_engine_rapfi_RapfiJni_nativeIsThinking(JNIEnv *, jobject)
     return rapfi_is_thinking();
 }
 
+JNIEXPORT jlong JNICALL
+Java_com_gomocalc_app_engine_rapfi_RapfiJni_nativeDatabaseSize(JNIEnv *, jobject)
+{
+    return rapfi_database_size();
+}
+
 JNIEXPORT void JNICALL
 Java_com_gomocalc_app_engine_rapfi_RapfiJni_nativeTerminate(JNIEnv *env, jobject)
 {
