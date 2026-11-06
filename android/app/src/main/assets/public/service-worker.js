@@ -15,7 +15,7 @@ importScripts("/workbox-v4.3.1/workbox-sw.js");
 workbox.setConfig({modulePathPrefix: "/workbox-v4.3.1"});
 
 importScripts(
-  "/precache-manifest.f50c30f6bfc2319f81def8be27a5029a.js"
+  "/precache-manifest.6beb262c8e212e1bde5b10afede7e024.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "gomoku-calculator"});
@@ -34,5 +34,3 @@ workbox.precaching.cleanupOutdatedCaches();
 
 workbox.routing.registerRoute(/^(?!.*\.html$).*$/, new workbox.strategies.CacheFirst({ "cacheName":"all-resources-cache", plugins: [new workbox.expiration.Plugin({ maxEntries: 500, maxAgeSeconds: 1296000, purgeOnQuotaError: true }), new workbox.cacheableResponse.Plugin({ statuses: [ 0, 200 ] })] }), 'GET');
 workbox.routing.registerRoute(/\.html$/, new workbox.strategies.StaleWhileRevalidate({ "cacheName":"html-cache", plugins: [new workbox.cacheableResponse.Plugin({ statuses: [ 0, 200 ] })] }), 'GET');
-
-workbox.googleAnalytics.initialize({});

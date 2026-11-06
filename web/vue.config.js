@@ -84,7 +84,6 @@ module.exports = {
       importWorkboxFrom: 'local',
       skipWaiting: true,
       clientsClaim: false,
-      offlineGoogleAnalytics: true,
       cleanupOutdatedCaches: true,
       runtimeCaching: [
         {
