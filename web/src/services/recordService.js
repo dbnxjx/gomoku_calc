@@ -29,8 +29,44 @@ function filenameFromName(name) {
 
 function pathFor(filename) { return `${RECORD_DIR}/${filename}` }
 
+function coordinate(value) {
+  const number = Number(value)
+  return value === null || value === undefined || Number.isNaN(number) ? -1 : number
+}
+
+function sgfPoint(pos) {
+  return `${String.fromCharCode(97 + pos[0])}${String.fromCharCode(97 + pos[1])}`
+}
+
+// 局面在棋谱里用标准的 AB/AW 记录，PL 记下一手。黑白必须能交替排列，否则不是真实棋局。
+function orderSetup(black, white) {
+  if (black.length !== white.length && black.length !== white.length + 1) return null
+  const stones = []
+  black.forEach((pos, index) => {
+    stones.push(pos)
+    if (index < white.length) stones.push(white[index])
+  })
+  return stones
+}
+
+function setupToSgf(stones) {
+  if (!stones || stones.length === 0) return ''
+  const black = stones.filter((_, index) => index % 2 === 0)
+  const white = stones.filter((_, index) => index % 2 === 1)
+  const list = (points) => points.map((pos) => `[${sgfPoint(pos)}]`).join('')
+  return `AB${list(black)}${white.length ? `AW${list(white)}` : ''}PL[${stones.length % 2 === 0 ? 'B' : 'W'}]`
+}
+
+function setupFromSgf(props, boardSize) {
+  const points = (value) => (value === undefined ? [] : [].concat(value))
+    .filter((point) => point.length === 2)
+    .map((point) => [point.charCodeAt(0) - 97, point.charCodeAt(1) - 97])
+    .filter((pos) => pos[0] >= 0 && pos[1] >= 0 && pos[0] < boardSize && pos[1] < boardSize)
+  return orderSetup(points(props.AB), points(props.AW)) || []
+}
+
 function cleanTreeForSgf(node) {
-  const result = { x: Number(node && node.x) || -1, y: Number(node && node.y) || -1, color: node && node.color || null, children: [] }
+  const result = { x: coordinate(node && node.x), y: coordinate(node && node.y), color: node && node.color || null, children: [] }
   result.children = (node && node.children || []).filter((child) => child && !child.isCalculated && child.x >= 0 && child.y >= 0).map(cleanTreeForSgf)
   return result
 }
@@ -50,7 +86,7 @@ function exportToSGF(treeData, metadata = {}) {
   const rule = String(metadata.rule || 'standard').replace(/[\x5B\x5D\x5C]/g, '')
   const children = root.children || []
   const body = children.length === 1 ? sgfNode(children[0]) : children.map((child) => `(${sgfNode(child)})`).join('')
-  return `(;GM[1]FF[4]CA[UTF-8]SZ[${size}]RU[${rule}]${body})`
+  return `(;GM[1]FF[4]CA[UTF-8]SZ[${size}]RU[${rule}]${setupToSgf(metadata.setup)}${body})`
 }
 
 function importFromSGF(text) {
@@ -60,6 +96,7 @@ function importFromSGF(text) {
   let nextId = 1
   let boardSize = 15
   let rule = 'standard'
+  let setup = []
   const skipSpace = () => { while (/\s/.test(source[cursor.index] || '')) cursor.index += 1 }
   const properties = () => {
     const result = {}
@@ -98,6 +135,7 @@ function importFromSGF(text) {
       const props = properties()
       if (props.SZ) boardSize = parseInt(String(props.SZ).split(':')[0], 10) || boardSize
       if (props.RU) rule = String(props.RU)
+      if (current === root && (props.AB || props.AW)) setup = setupFromSgf(props, boardSize)
       const move = props.B || props.W
       if (typeof move === 'string' && move.length === 2) {
         const x = move.charCodeAt(0) - 97
@@ -114,7 +152,7 @@ function importFromSGF(text) {
     if (source[cursor.index] === ')') cursor.index += 1
   }
   sequence(root)
-  return { metadata: { boardSize, rule }, tree: root }
+  return { metadata: { boardSize, rule, setup }, tree: root }
 }
 
 function exportToJSON(treeData, metadata) { return { version: FILE_VERSION, metadata, tree: cleanTreeForSgf(treeData) } }
@@ -209,4 +247,4 @@ function parseEval(evalStr) {
   return { type: 'score', value: parseInt(evalStr) || 0 }
 }
 
-export default { FILE_VERSION, FILE_EXTENSION, createMetadata, exportToJSON, importFromJSON, exportToSGF, importFromSGF, formatDateName, sanitizeName, filenameFromName, listRecords, saveRecord, loadRecord, renameRecord, deleteRecord, parseEval }
+export default { FILE_VERSION, FILE_EXTENSION, createMetadata, orderSetup, exportToJSON, importFromJSON, exportToSGF, importFromSGF, formatDateName, sanitizeName, filenameFromName, listRecords, saveRecord, loadRecord, renameRecord, deleteRecord, parseEval }

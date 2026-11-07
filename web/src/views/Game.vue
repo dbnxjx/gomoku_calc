@@ -67,6 +67,11 @@
             </x-button>
           </flexbox-item>
           <flexbox-item>
+            <x-button style="padding: 0" aria-label="拍照识别" @click.native="showSourceSheet = true">
+              <i class="fa fa-camera" aria-hidden="true"></i>
+            </x-button>
+          </flexbox-item>
+          <flexbox-item>
             <x-button style="padding: 0" @click.native="setValue({ key: 'showIndex', value: !showIndex })">
               <i v-if="showIndex" class="fa fa-info-circle" aria-hidden="true"></i>
               <i v-else class="fa fa-info" aria-hidden="true"></i>
@@ -157,6 +162,18 @@
         </div>
       </x-dialog>
     </div>
+
+    <div v-transfer-dom>
+      <RecognizeDialog v-if="recognition" ref="recognizeDialog" :initial="recognition" :retake-label="recognitionSource === 'gallery' ? '重选' : '重拍'"
+        @close="closeRecognition(true)" @retake="openRecognition(recognitionSource)" @confirm="applyRecognizedBoard" />
+      <div v-if="recognizing" class="recognizing-mask">正在识别…</div>
+      <div v-if="showSourceSheet" class="source-mask" @click="showSourceSheet = false">
+        <div class="source-sheet" @click.stop>
+          <div class="source-item" @click="openRecognition('camera')">拍照</div>
+          <div class="source-item" @click="openRecognition('gallery')">相册</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -175,6 +192,9 @@ import {
 import { debounce } from 'throttle-debounce'
 import Board from '@/components/Board.vue'
 import MoveTree from '@/components/MoveTree.vue'
+import RecognizeDialog from '@/components/RecognizeDialog.vue'
+import { capture, interceptBack, onBackPressed } from '@/services/boardRecognition'
+import { checkCounts } from '@/services/boardView'
 import { mapState, mapGetters, mapMutations, mapActions } from 'vuex'
 import { Promise } from 'q'
 import { RENJU } from '@/store/modules/settings'
@@ -189,6 +209,7 @@ export default {
   components: {
     Board,
     MoveTree,
+    RecognizeDialog,
     Flexbox,
     FlexboxItem,
     XButton,
@@ -204,6 +225,12 @@ export default {
       showLoading: false,
       console: console,
       thinkingCanceled: false,
+      recognition: null,
+      recognizing: false,
+      recognitionSource: 'camera',
+      showSourceSheet: false,
+      resumeAfterRecognition: false,
+      boardSizeFromRecord: false,
       debouncedQueryKillPoints: debounce(120, () => this.$store.dispatch('ai/queryKillPoints')),
     }
   },
@@ -279,6 +306,10 @@ export default {
     },
     gameEnded() {
       return this.winline.length > 0 || this.moveLeftCount == 0
+    },
+    // 这些界面打开时，系统返回键退出它们，而不是退出应用
+    interceptsBack() {
+      return this.showSourceSheet || this.recognizing || !!this.recognition
     },
     currentTreeNode() {
       const treeVersion = this.$store.state.moveTree.version
@@ -402,6 +433,85 @@ export default {
       })
     },
 
+    onSystemBack() {
+      if (this.recognizing) return
+      if (this.showSourceSheet) this.showSourceSheet = false
+      else if (this.$refs.recognizeDialog) this.$refs.recognizeDialog.handleBack()
+    },
+
+    // 路数由棋谱决定时用这个，不走 boardSize 监听里的“换路数就开新棋谱”
+    applyBoardSize(size, alreadyWarned = false) {
+      if (size > 15 && this.engineType === 'KATAGO') {
+        this.setValue({ key: 'engineType', value: 'RAPFI' })
+        if (!alreadyWarned) this.$vux.alert.show_i18n({ title: '已切换到 Rapfi', content: `这份棋谱是 ${size} 路，KataGo 只支持 15 路` })
+      }
+      if (this.boardSize === size) return
+      this.boardSizeFromRecord = true
+      this.setValue({ key: 'boardSize', value: size })
+      this.restart() // 上一个路数的分析结果不能留在这个棋盘上
+    },
+
+    openRecognition(source) {
+      this.showSourceSheet = false
+      this.recognitionSource = source
+      this.checkThinking().then(async () => {
+        // 取景要占用 CPU，KataGo 的后台分析先停下，没用这张图时再恢复
+        if (this.engineType === 'KATAGO' && this.thinking) {
+          this.resumeAfterRecognition = !this.kataGoPaused
+          this.stop({ manual: false })
+        }
+        try {
+          const pending = capture(source)
+          this.recognizing = true
+          const result = await pending
+          if (result.cancelled) {
+            // 重拍时取消，还回到上一次的结果
+            if (!this.recognition) this.closeRecognition(true)
+            return
+          }
+          this.recognition = result
+        } catch (error) {
+          this.$vux.alert.show_i18n({ title: '识别失败', content: String(error.message || error) })
+          if (!this.recognition) this.closeRecognition(true)
+        } finally {
+          this.recognizing = false
+        }
+      })
+    },
+
+    closeRecognition(resume) {
+      this.recognition = null
+      const shouldResume = resume && this.resumeAfterRecognition
+      this.resumeAfterRecognition = false
+      if (shouldResume && this.ready && !this.gameEnded) this.startThink()
+    },
+
+    async uniqueRecordName() {
+      const base = recordService.formatDateName()
+      let name = base
+      for (let suffix = 2; this.$refs.moveTree && await this.$refs.moveTree.hasRecordName(name); suffix++) {
+        name = `${base}-${suffix}`
+      }
+      return name
+    },
+
+    // 确认的局面：按时间新建棋谱，局面作为落子树的根，之后的落子从第 1 手算起
+    async applyRecognizedBoard({ black, white, size }) {
+      const check = checkCounts(black.length, white.length)
+      const stones = check.valid ? recordService.orderSetup(black, white) : null
+      if (!stones) return
+      const shouldResume = this.resumeAfterRecognition && size <= 15
+      this.closeRecognition(false)
+      this.applyBoardSize(size, true) // 结果页已经提示过引擎切换
+      await this.$nextTick()
+      const name = await this.uniqueRecordName()
+      this.newBoard(size)
+      this.restart()
+      if (this.$refs.moveTree) await this.$refs.moveTree.createRecord(name, stones)
+      this.$store.dispatch('position/loadSetup', stones)
+      if (shouldResume && this.ready && !this.gameEnded) this.startThink()
+    },
+
     getVisibleTreeChildren(node) {
       return node && node.children ? node.children : []
     },
@@ -409,6 +519,12 @@ export default {
     getNextTreeChild(node) {
       const children = this.getVisibleTreeChildren(node)
       return children.length > 0 ? children[0] : null
+    },
+
+    // 回到落子树的根：空棋盘，或者棋谱记录的局面
+    resetBoardToRoot() {
+      this.newBoard(this.boardSize)
+      this.$store.dispatch('position/loadSetup', this.$store.state.moveTree.setup)
     },
 
     syncBoardToTreeNode(node) {
@@ -420,7 +536,7 @@ export default {
         if (n.x >= 0 && n.y >= 0) path.unshift([n.x, n.y])
         n = n.parent
       }
-      this.newBoard(this.boardSize)
+      this.resetBoardToRoot()
       for (const pos of path) {
         if (!this.makeMove(pos)) break
       }
@@ -629,11 +745,12 @@ export default {
       if (shouldResume) this.startThink()
     },
 
-    onRecordLoaded() {
+    onRecordLoaded(size) {
+      if (size) this.applyBoardSize(size)
       const shouldResume = this.prepareKataGoForPositionChange()
       // 棋谱加载完成后，恢复棋盘状态
       const path = this.$store.getters['moveTree/getPathToCurrent']
-      this.newBoard(this.boardSize)
+      this.resetBoardToRoot()
       if (path && path.length > 0) {
         for (const pos of path) this.makeMove(pos)
       }
@@ -644,11 +761,22 @@ export default {
     bestline: function () {
       if (this.$refs.bestlineArea) this.$refs.bestlineArea.updateAutosize()
     },
-    boardSize: function (newSize) {
+    boardSize: async function (newSize) {
+      if (this.boardSizeFromRecord) {
+        this.boardSizeFromRecord = false
+        return
+      }
       if (this.thinking) this.stop()
       this.newBoard(newSize)
       this.restart()
-      this.$store.dispatch('moveTree/init')
+      // 当前棋谱有内容时另开一份，否则换路数会把它存成空棋谱
+      const tree = this.$store.state.moveTree
+      const hasContent = tree.setup.length > 0 || (tree.rootNode && tree.rootNode.children.length > 0)
+      if (hasContent && this.$refs.moveTree) await this.$refs.moveTree.createRecord(await this.uniqueRecordName())
+      else this.$store.dispatch('moveTree/init')
+    },
+    interceptsBack: function (active) {
+      interceptBack(active).catch(() => {})
     },
     loadingProgress: function (progress) {
       if (progress == 1) this.showLoading = false
@@ -659,6 +787,7 @@ export default {
   },
   mounted() {
     this.newBoard(this.boardSize)
+    Promise.resolve(onBackPressed(() => this.onSystemBack())).catch(() => {})
 
     window.addEventListener('keydown', (event) => {
       const target = event.target
@@ -701,6 +830,47 @@ export default {
 </script>
 
 <style lang="less" scoped>
+.source-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1002;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.source-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+}
+
+.source-item {
+  padding: 15px;
+  font-size: 16px;
+  color: #333;
+  text-align: center;
+  border-top: 1px solid #eee;
+}
+
+.recognizing-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
 .katago-summary {
   padding: 8px 10px;
   color: #34495e;

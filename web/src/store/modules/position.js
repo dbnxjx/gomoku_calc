@@ -39,6 +39,8 @@ const state = {
   position: [],
   /* 棋子序列数组,每个元素为一个表示坐标的二维向量[x, y] */
   lastPosition: [],
+  /* position 的前 setupCount 颗是拍照确认的局面，黑白交替排列，引擎当作普通棋子；它们不显示手数 */
+  setupCount: 0,
   winline: [],
   swaped: false,
 }
@@ -94,8 +96,40 @@ const mutations = {
     state.board = new Uint8Array(state.size * state.size).fill(EMPTY)
     state.lastPosition = []
     state.position = []
+    state.setupCount = 0
     state.winline = []
     state.swaped = false
+  },
+  // 放上确认的局面。stones 已按黑、白、黑、白排列，所以下一手由棋子数决定。
+  setup(state, { stones, gameRule }) {
+    stones.forEach((pos, index) => {
+      state.board[pos[1] * state.size + pos[0]] = index % 2 == 0 ? BLACK : WHITE
+      state.position.push(pos)
+    })
+    state.lastPosition = [...state.position]
+    state.setupCount = stones.length
+    state.winline = []
+    // 棋子不是按真实顺序落下的，五连可能在任何位置，要逐颗检查
+    const dirs = [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+      [1, -1],
+    ]
+    for (let index = 0; index < stones.length; index++) {
+      const pos = stones[index]
+      const exactFive = gameRule == STANDARD || (gameRule == RENJU && index % 2 == 0)
+      for (let dir of dirs) {
+        const ret = checkLine(state.board, pos, dir, state.size, exactFive)
+        if (ret) {
+          state.winline = [
+            [pos[0] + ret[0] * dir[0], pos[1] + ret[0] * dir[1]],
+            [pos[0] + ret[1] * dir[0], pos[1] + ret[1] * dir[1]],
+          ]
+          return
+        }
+      }
+    }
   },
   move(state, pos) {
     state.board[pos[1] * state.size + pos[0]] = state.position.length % 2 == 0 ? BLACK : WHITE
@@ -137,6 +171,13 @@ const mutations = {
 }
 
 const actions = {
+  // 调用前棋盘必须是空的（先 commit new）
+  loadSetup({ commit, dispatch, rootGetters }, stones) {
+    if (!stones || stones.length === 0) return
+    commit('setup', { stones, gameRule: rootGetters['settings/gameRule'] })
+    commit('setSwaped') // 已有局面时不存在开局交换
+    dispatch('ai/checkForbid', {}, { root: true })
+  },
   makeMove({ commit, dispatch, getters, rootGetters }, pos) {
     if (!getters.isEmpty(pos)) return false
     let checkOverline =

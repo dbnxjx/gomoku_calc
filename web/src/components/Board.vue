@@ -13,10 +13,7 @@
 import { throttle, debounce } from 'throttle-debounce'
 import { mapState, mapGetters } from 'vuex'
 import { RENJU } from '@/store/modules/settings'
-
-const paddingTop = 10,
-  paddingBottom = 26
-const paddingX = 26
+import { paddingTop, paddingBottom, paddingX, fillCircle, drawBackground, drawCoord, drawBoard, drawPiece } from '@/components/boardDraw'
 
 function hexToRgba(sHex, alpha = 1) {
   // 十六进制颜色值的正则表达式
@@ -44,125 +41,6 @@ function hexToRgba(sHex, alpha = 1) {
   }
 }
 
-function fillCircle(ctx, x, y, r) {
-  const PI2 = 2 * Math.PI
-  ctx.beginPath()
-  ctx.arc(x, y, r, 0, PI2)
-  ctx.fill()
-}
-
-function drawBackground(ctx, style, w, h, noShadow) {
-  ctx.save()
-  if (!noShadow) {
-    ctx.shadowOffsetX = ctx.shadowOffsetY = 2
-    ctx.shadowBlur = paddingX / 2
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)'
-  }
-  ctx.fillStyle = style.boardColor
-  ctx.fillRect(paddingX, paddingTop, w - paddingX * 2, h - paddingBottom - paddingTop)
-  ctx.restore()
-}
-
-function drawCoord(ctx, style, w, h, s, cs) {
-  ctx.save()
-  ctx.font = style.coordFontStyle + ' ' + Math.min(20, cs * 0.6) + 'px ' + style.coordFontFamily
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillStyle = style.coordColor
-
-  // 左侧坐标
-  ctx.save()
-  ctx.translate(paddingX / 2, paddingTop + cs / 2)
-  for (let i = 0; i < s; i++) {
-    ctx.fillText(s - i, 0, cs * i, paddingX)
-  }
-
-  // 右侧坐标
-  ctx.translate(w - paddingX, 0)
-  for (let i = 0; i < s; i++) {
-    ctx.fillText(s - i, 0, cs * i, paddingX)
-  }
-  ctx.restore()
-
-  // 底部坐标
-  ctx.translate(paddingX + cs / 2, h - paddingBottom / 2)
-  for (let i = 0; i < s; i++) {
-    ctx.fillText(String.fromCharCode('A'.charCodeAt(0) + i), cs * i, 0)
-  }
-
-  ctx.restore()
-}
-
-function drawBoard(ctx, style, s, cs) {
-  let si = s - 1
-
-  ctx.save()
-  ctx.strokeStyle = ctx.fillStyle = style.lineColor
-  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
-  ctx.scale(cs, cs)
-
-  // 网格线
-  ctx.lineWidth = style.lineWidth
-  ctx.beginPath()
-  for (let i = 1; i < si; i++) {
-    ctx.moveTo(i, 0)
-    ctx.lineTo(i, si)
-    ctx.moveTo(0, i)
-    ctx.lineTo(si, i)
-  }
-  ctx.stroke()
-
-  // 画边框
-  ctx.lineWidth = style.lineWidth * 2.5
-  ctx.beginPath()
-  ctx.moveTo(0, 0)
-  ctx.lineTo(si, 0)
-  ctx.lineTo(si, si)
-  ctx.lineTo(0, si)
-  ctx.closePath()
-  ctx.stroke()
-
-  // 画星位
-  let starPad = Math.floor(s / 5)
-  let starCenter = Math.floor(s / 2)
-  let starRadius = style.starRadiusScale
-  fillCircle(ctx, starPad, starPad, starRadius)
-  fillCircle(ctx, si - starPad, starPad, starRadius)
-  fillCircle(ctx, starPad, si - starPad, starRadius)
-  fillCircle(ctx, si - starPad, si - starPad, starRadius)
-  fillCircle(ctx, starCenter, starCenter, starRadius)
-
-  ctx.restore()
-}
-
-function drawPiece(ctx, style, cs, position, end) {
-  let radius = style.pieceScale / 2
-  ctx.save()
-  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
-  ctx.scale(cs, cs)
-
-  ctx.lineWidth = style.pieceStrokeWidth
-  ctx.fillStyle = style.pieceBlack
-  ctx.strokeStyle = style.pieceStrokeBlack
-
-  end = Math.min(end, position.length)
-  for (let i = 0; i < end; i += 2) {
-    let pos = position[i]
-    fillCircle(ctx, pos[0], pos[1], radius)
-    if (style.pieceStrokeWidth > 0) ctx.stroke()
-  }
-
-  ctx.fillStyle = style.pieceWhite
-  ctx.strokeStyle = style.pieceStrokeWhite
-  for (let i = 1; i < end; i += 2) {
-    let pos = position[i]
-    fillCircle(ctx, pos[0], pos[1], radius)
-    if (style.pieceStrokeWidth > 0) ctx.stroke()
-  }
-
-  ctx.restore()
-}
-
 function drawIndex(ctx, style, cs, position, end, startIndex, highlight) {
   ctx.save()
   ctx.font = style.indexFontStyle + ' ' + style.indexScale * cs + 'px ' + style.indexFontFamily
@@ -188,9 +66,9 @@ function drawIndex(ctx, style, cs, position, end, startIndex, highlight) {
   ctx.restore()
 }
 
-function drawLastStep(ctx, style, cs, position, end) {
+function drawLastStep(ctx, style, cs, position, end, startIndex) {
   end = Math.min(end, position.length)
-  if (end <= 0) return
+  if (end <= startIndex) return
   ctx.save()
   ctx.fillStyle = style.lastStepColor
   ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
@@ -414,6 +292,7 @@ export default {
     ...mapState('position', {
       boardSize: 'size',
       position: 'position',
+      setupCount: 'setupCount',
       winline: 'winline',
     }),
     ...mapState('settings', [
@@ -513,8 +392,8 @@ export default {
       } else {
         drawPiece(ctx, this.boardStyle, cellSize, this.position, Infinity)
         if (this.showIndex)
-          drawIndex(ctx, this.boardStyle, cellSize, this.position, Infinity, 0, true)
-        else drawLastStep(ctx, this.boardStyle, cellSize, this.position, Infinity)
+          drawIndex(ctx, this.boardStyle, cellSize, this.position, Infinity, this.setupCount, true)
+        else drawLastStep(ctx, this.boardStyle, cellSize, this.position, Infinity, this.setupCount)
       }
 
       ctx.restore()

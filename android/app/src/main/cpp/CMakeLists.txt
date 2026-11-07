@@ -119,3 +119,8 @@ endif()
 target_compile_options(rapfi_jni PRIVATE -ffp-contract=off)
 
 target_link_libraries(rapfi_jni PRIVATE log)
+
+# 棋盘识别。只有 arm64 打包了 ncnn，模拟器（x86_64）上没有这个功能。
+if(ANDROID_ABI STREQUAL "arm64-v8a")
+    add_subdirectory(recognition)
+endif()

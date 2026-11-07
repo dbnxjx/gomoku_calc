@@ -109,6 +109,8 @@ const state = {
   currentNodeId: null,
   version: 0,
   allNodes: {},
+  // 根节点代表的局面，黑白交替排列；普通棋谱为空
+  setup: [],
 }
 
 const getters = {
@@ -149,6 +151,12 @@ const mutations = {
     s.allNodes = {}
     s.rootNode = new MoveNode(null, -1, -1, null)
     s.currentNodeId = s.rootNode.id
+    s.setup = []
+    s.version++
+  },
+
+  setSetup(s, stones) {
+    s.setup = stones || []
     s.version++
   },
 

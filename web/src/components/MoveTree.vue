@@ -172,7 +172,8 @@ export default {
       }
     },
 
-    async createRecord(name) {
+    // setup 是这份棋谱开始时的局面，黑白交替排列；普通新棋谱不传
+    async createRecord(name, setup = []) {
       const title = recordService.sanitizeName(name || recordService.formatDateName())
       const filename = recordService.filenameFromName(title)
       if (await this.hasRecordName(filename)) {
@@ -181,6 +182,7 @@ export default {
       }
       this.currentRecordFilename = filename
       this.$store.dispatch('moveTree/init')
+      this.$store.commit('moveTree/setSetup', setup)
       try {
         await this.saveCurrentRecord(true)
         await this.refreshRecords()
@@ -207,7 +209,8 @@ export default {
         if (data) {
           this.currentRecordFilename = record.filename
           this.$store.dispatch('moveTree/loadFromJSON', data.tree)
-          this.$emit('record-loaded')
+          this.$store.commit('moveTree/setSetup', (data.metadata && data.metadata.setup) || [])
+          this.$emit('record-loaded', data.metadata && data.metadata.boardSize)
         }
       } catch (e) {
         alert('读取失败: ' + e.message)
@@ -241,7 +244,7 @@ export default {
       if (!this.currentRecordFilename || !this.rootNode) return
       try {
         const treeData = this.$store.getters['moveTree/getTreeJSON']
-        const metadata = recordService.createMetadata(this.boardSize, this.rule)
+        const metadata = { ...recordService.createMetadata(this.boardSize, this.rule), setup: this.$store.state.moveTree.setup }
         const saved = await recordService.saveRecord(this.currentRecordFilename, treeData, metadata)
         this.currentRecordFilename = saved.filename
         const existing = this.records.find((r) => r.filename === saved.filename)

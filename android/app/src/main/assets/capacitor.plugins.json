@@ -14,5 +14,9 @@
 	{
 		"pkg": "app-orientation",
 		"classpath": "com.gomocalc.app.AppOrientationPlugin"
+	},
+	{
+		"pkg": "board-recognition",
+		"classpath": "com.gomocalc.app.recognition.BoardRecognitionPlugin"
 	}
 ]
